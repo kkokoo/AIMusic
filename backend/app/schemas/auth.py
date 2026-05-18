@@ -1,10 +1,15 @@
 from pydantic import BaseModel, EmailStr
 
 
+class SendVerifyCodeRequest(BaseModel):
+    email: str
+
+
 class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
+    verify_code: str
 
 
 class LoginRequest(BaseModel):

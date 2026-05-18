@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     minimax_api_key: str = ""
     minimax_base_url: str = "https://api.minimaxi.com"
 
-    smtp_host: str = "smtp.qq.com"
+    smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
-    smtp_user: str = "luobishengsha@qq.com"
-    smtp_password: str = "3910112"
+    smtp_user: str = ""
+    smtp_password: str = ""
     smtp_from_name: str = "AI Music"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

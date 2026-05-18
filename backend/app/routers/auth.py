@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,12 +7,15 @@ from app.models.user import User
 from app.models.credit_transaction import CreditTransaction
 from app.models.system_config import SystemConfig
 from app.schemas.auth import (
-    RegisterRequest, LoginRequest, TokenResponse, UserResponse,
+    RegisterRequest, LoginRequest, SendVerifyCodeRequest, TokenResponse, UserResponse,
 )
 from app.utils.auth import hash_password, verify_password, create_token, get_current_user
 from app.utils.response import ApiResponse
+from app.utils.email import generate_code, store_code, verify_code, send_verify_email
 
 router = APIRouter()
+
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def user_to_response(user: User) -> dict:
@@ -29,8 +33,26 @@ def user_to_response(user: User) -> dict:
     ).model_dump()
 
 
+@router.post("/api/auth/send-verify-code")
+async def send_verify_code(req: SendVerifyCodeRequest, db: AsyncSession = Depends(get_db)):
+    email = req.email.lower().strip()
+    if not EMAIL_PATTERN.match(email):
+        return ApiResponse.fail("邮箱格式不正确")
+
+    code = generate_code()
+    store_code(email, code, ttl=300)
+
+    success = await send_verify_email(email, code)
+    if not success:
+        return ApiResponse.fail("验证码发送失败，请稍后重试")
+
+    return ApiResponse.ok({"message": "验证码已发送", "email": email})
+
+
 @router.post("/api/auth/register")
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if not verify_code(req.email, req.verify_code):
+        return ApiResponse.fail("验证码错误或已过期")
     existing = await db.scalar(select(User).where(User.email == req.email))
     if existing:
         return ApiResponse.fail("邮箱已注册")

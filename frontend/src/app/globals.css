@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-space-900: #0a0a0f;
+  --color-space-800: #12121a;
+  --color-space-700: #1a1a2e;
+  --color-space-600: #252540;
+  --color-cyan-neon: #00f0ff;
+  --color-cyan-glow: #00f0ff33;
+  --color-purple-neon: #8b5cf6;
+  --color-purple-glow: #8b5cf633;
+  --color-magenta-neon: #ff00e5;
+  --color-green-neon: #00ff88;
+  --color-red-neon: #ff4472;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a0b8;
+  --color-text-muted: #606078;
+  --font-orbitron: 'Orbitron', sans-serif;
+  --font-sans-sc: 'Noto Sans SC', sans-serif;
+  --font-mono-code: 'JetBrains Mono', monospace;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #252540 transparent;
+}
+
+body {
+  background: #0a0a0f;
+  color: #ffffff;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--color-cyan-glow); }
+  50% { box-shadow: 0 0 20px var(--color-cyan-glow), 0 0 40px var(--color-cyan-glow); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes equalizer {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
+}
+
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+.glow-cyan {
+  box-shadow: 0 0 10px var(--color-cyan-glow);
+}
+
+.glow-purple {
+  box-shadow: 0 0 10px var(--color-purple-glow);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px #00f0ff66, 0 0 30px #00f0ff33;
+}
+
+.glow-text-purple {
+  text-shadow: 0 0 10px #8b5cf666, 0 0 30px #8b5cf633;
+}
+
+.glass {
+  background: rgba(18, 18, 26, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-strong {
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #00f0ff, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-cyan-purple {
+  background: linear-gradient(135deg, #00f0ff, #8b5cf6);
+}
+
+.gradient-btn {
+  background: linear-gradient(135deg, #00f0ff, #0090ff);
+  transition: all 0.3s ease;
+}
+
+.gradient-btn:hover {
+  background: linear-gradient(135deg, #33f3ff, #33a0ff);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+}
