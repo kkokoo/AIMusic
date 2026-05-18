@@ -7,17 +7,10 @@ import {
   Sparkles,
   Music,
   Mic,
-  Sliders,
   Clock,
   Coins,
-  RefreshCw,
   RotateCcw,
-  ChevronDown,
-  ChevronUp,
-  ArrowLeft,
-  ArrowRight,
   Wand2,
-  Plus,
   Download,
   Layers,
   Play,
@@ -29,7 +22,6 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import { useModelStore } from '@/stores/modelStore'
 import { useTaskStore } from '@/stores/taskStore'
-import { useCreditStore } from '@/stores/creditStore'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Slider from '@/components/ui/Slider'
@@ -37,7 +29,6 @@ import Badge from '@/components/ui/Badge'
 import { cn } from '@/utils/cn'
 import { formatDuration } from '@/utils/format'
 import { usePolling } from '@/hooks/usePolling'
-import MusicPlayer from '@/components/ui/MusicPlayer'
 import { useAudioStore } from '@/stores/audioStore'
 import apiClient from '@/lib/axios'
 import type { AIModel } from '@/types'
@@ -999,7 +990,7 @@ export default function CreatePage() {
   const router = useRouter()
   const { user } = useAuthStore()
   const { selectedModel, selectModel } = useModelStore()
-  const { currentTask, submitTask, isGenerating } = useTaskStore()
+  const { currentTask, submitTask } = useTaskStore()
   const { startPolling } = usePolling()
 
   const [mode, setMode] = useState<Mode>('instrumental')
@@ -1111,8 +1102,8 @@ export default function CreatePage() {
   ])
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
-      <aside className="flex-shrink-0 glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-105 min-h-0 md:ml-5">
+    <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden">
+      <aside className="flex-1 lg:flex-none glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-105 min-h-0 md:ml-5">
         <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-5 scrollbar-thin">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
