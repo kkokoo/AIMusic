@@ -9,8 +9,7 @@ build/
 
 # Env - NEVER commit these
 backend/.env
-frontend/.env
-frontend/.env.local
+
 .env
 .env.local
 .env.*.local
