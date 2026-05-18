@@ -1,9 +1,5 @@
 # Security: block env files with explicit paths
 backend/.env
-frontend/.env
-frontend/.env.local
-.env
-.env.*
 !.env.example
 
 # Additional security patterns
