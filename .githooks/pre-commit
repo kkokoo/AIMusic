@@ -1,0 +1,52 @@
+#!/bin/bash
+# Pre-commit: Block commits containing API keys or secrets
+# Runs before every git commit
+
+RED='\033[0;31m'
+NC='\033[0m'
+
+PATTERNS=(
+  "sk-[a-zA-Z0-9]{20,}"
+  "AKID[a-zA-Z0-9]{20,}"
+  "eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}"
+  "SECRET_KEY\s*=\s*['\"]\S{8,}['\"]"
+  "API_KEY\s*=\s*['\"]\S{8,}['\"]"
+  "access_key\s*=\s*['\"]\S{8,}['\"]"
+  "secret_key\s*=\s*['\"]\S{8,}['\"]"
+)
+
+FOUND=0
+STAGED_FILES=$(git diff --cached --name-only)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+for FILE in $STAGED_FILES; do
+  if [ ! -f "$FILE" ]; then
+    continue
+  fi
+  # Skip binary and generated files
+  case "$FILE" in
+    *.db|*.sqlite|*.jpg|*.png|*.mp3|*.wav|*.o|*.so|*.exe|*.dll|*.woff|*.woff2|*.ttf|node_modules/*|.next/*|__pycache__/*|*.pyc) continue ;;
+  esac
+  for PATTERN in "${PATTERNS[@]}"; do
+    if grep -Eq "$PATTERN" "$FILE" 2>/dev/null; then
+      MATCH=$(grep -En "$PATTERN" "$FILE" | head -3)
+      echo -e "${RED}[SECRET DETECTED]${NC} $FILE:"
+      echo "$MATCH"
+      echo ""
+      FOUND=1
+    fi
+  done
+done
+
+if [ $FOUND -eq 1 ]; then
+  echo -e "${RED}══════════════════════════════════════════════${NC}"
+  echo -e "${RED}  COMMIT BLOCKED - API keys or secrets detected${NC}"
+  echo -e "${RED}  Remove secrets before committing or use .env${NC}"
+  echo -e "${RED}══════════════════════════════════════════════${NC}"
+  exit 1
+fi
+
+exit 0
