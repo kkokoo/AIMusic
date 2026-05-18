@@ -53,3 +53,7 @@ build/
 next-env.d.ts
 
 .trae/
+
+.gitignore
+
+.githooks/
