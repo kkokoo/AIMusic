@@ -41,62 +41,135 @@ function setStore<T>(key: string, data: T): void {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+function seedOnce<T>(key: string, seedData: T): void {
+  const isSeedVersionKey = key + '_seed_v2';
+  if (localStorage.getItem(isSeedVersionKey)) return;
+  setStore(key, seedData);
+  localStorage.setItem(isSeedVersionKey, '1');
+}
+
 function initMockData(): void {
   if (typeof window === 'undefined') return;
 
-  if (!localStorage.getItem(STORAGE_KEYS.models)) {
-    setStore(STORAGE_KEYS.models, [
-      {
-        id: 1, name: 'SonicWave Pro', code: 'sonicwave_pro',
-        description: '专业纯音乐生成模型，支持多种风格与乐器组合',
-        supportedModes: ['instrumental'], supportsLyrics: false,
-        maxDurationSec: 120, pricePerSecond: 2, pricePerSong: 0,
-        tags: ['高音质', '多风格'], apiConfig: {}, adapterName: 'sonicwave',
-        maxConcurrent: 5, isActive: true, consecutiveFailures: 0,
-      },
-      {
-        id: 2, name: 'VocalSynth AI', code: 'vocalsynth_ai',
-        description: '全能型歌曲生成模型，支持人声合成与多语言歌词',
-        supportedModes: ['instrumental', 'song'], supportsLyrics: true,
-        maxDurationSec: 180, pricePerSecond: 3, pricePerSong: 0,
-        tags: ['人声', '多语言'], apiConfig: {}, adapterName: 'vocalsynth',
-        maxConcurrent: 3, isActive: true, consecutiveFailures: 0,
-      },
-    ] as AIModel[]);
-  }
+  seedOnce(STORAGE_KEYS.models, [
+    {
+      id: 1, name: 'SonicWave Pro', code: 'sonicwave_pro',
+      description: '专业纯音乐生成模型，支持多种风格与乐器组合',
+      supportedModes: ['instrumental'], supportsLyrics: false,
+      maxDurationSec: 120, pricePerSecond: 2, pricePerSong: 0,
+      tags: ['高音质', '多风格'], apiConfig: {}, adapterName: 'sonicwave',
+      maxConcurrent: 5, isActive: true, consecutiveFailures: 0,
+    },
+    {
+      id: 2, name: 'VocalSynth AI', code: 'vocalsynth_ai',
+      description: '全能型歌曲生成模型，支持人声合成与多语言歌词',
+      supportedModes: ['instrumental', 'song'], supportsLyrics: true,
+      maxDurationSec: 180, pricePerSecond: 3, pricePerSong: 0,
+      tags: ['人声', '多语言'], apiConfig: {}, adapterName: 'vocalsynth',
+      maxConcurrent: 3, isActive: true, consecutiveFailures: 0,
+    },
+    {
+      id: 3, name: 'BeatMaster X', code: 'beatmaster_x',
+      description: '节拍与节奏专用模型，适合电子音乐与HIP-HOP制作',
+      supportedModes: ['instrumental'], supportsLyrics: false,
+      maxDurationSec: 150, pricePerSecond: 4, pricePerSong: 0,
+      tags: ['节拍', '电子'], apiConfig: {}, adapterName: 'sonicwave',
+      maxConcurrent: 4, isActive: true, consecutiveFailures: 0,
+    },
+  ] as AIModel[]);
 
-  if (!localStorage.getItem(STORAGE_KEYS.packages)) {
-    setStore(STORAGE_KEYS.packages, [
-      { id: 1, name: '入门套餐', priceCents: 600, credits: 100, bonusCredits: 0, isRecommended: false, isActive: true },
-      { id: 2, name: '进阶套餐', priceCents: 3000, credits: 600, bonusCredits: 50, isRecommended: true, isActive: true },
-      { id: 3, name: '专业套餐', priceCents: 6000, credits: 1500, bonusCredits: 200, isRecommended: false, isActive: true },
-      { id: 4, name: '大师套餐', priceCents: 12000, credits: 3000, bonusCredits: 500, isRecommended: false, isActive: true },
-    ] as CreditPackage[]);
-  }
+  seedOnce(STORAGE_KEYS.packages, [
+    { id: 1, name: '入门套餐', priceCents: 600, credits: 100, bonusCredits: 0, isRecommended: false, isActive: true },
+    { id: 2, name: '进阶套餐', priceCents: 3000, credits: 600, bonusCredits: 50, isRecommended: true, isActive: true },
+    { id: 3, name: '专业套餐', priceCents: 6000, credits: 1500, bonusCredits: 200, isRecommended: false, isActive: true },
+    { id: 4, name: '大师套餐', priceCents: 12000, credits: 3000, bonusCredits: 500, isRecommended: false, isActive: true },
+  ] as CreditPackage[]);
 
-  if (!localStorage.getItem(STORAGE_KEYS.configs)) {
-    setStore(STORAGE_KEYS.configs, {
-      initialCredits: 0,
-      maxConcurrent: 3,
-      autoRefund: true,
-      creditPricePerUnit: 0.06,
-    });
-  }
+  seedOnce(STORAGE_KEYS.configs, {
+    initialCredits: 100,
+    maxConcurrent: 3,
+    autoRefund: true,
+    creditPricePerUnit: 0.06,
+  });
 
-  if (!localStorage.getItem(STORAGE_KEYS.users)) {
-    const adminUser: User = {
-      id: 1, username: 'admin', email: 'admin@example.com',
-      credits: 9999, totalCreditsEarned: 0, totalCreditsSpent: 0,
-      isActive: true, isAdmin: true,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    };
-    setStore(STORAGE_KEYS.users, [adminUser]);
-  }
+  const now = Date.now();
+  const dayMs = 86400000;
 
-  if (!localStorage.getItem(STORAGE_KEYS.tasks)) setStore(STORAGE_KEYS.tasks, [] as GenerationTask[]);
-  if (!localStorage.getItem(STORAGE_KEYS.transactions)) setStore(STORAGE_KEYS.transactions, [] as CreditTransaction[]);
-  if (!localStorage.getItem(STORAGE_KEYS.orders)) setStore(STORAGE_KEYS.orders, [] as CreditOrder[]);
-  if (!localStorage.getItem(STORAGE_KEYS.logs)) setStore(STORAGE_KEYS.logs, [] as AdminLog[]);
+  seedOnce(STORAGE_KEYS.users, [
+    { id: 1, username: 'admin', email: 'admin@example.com', credits: 9999, totalCreditsEarned: 9999, totalCreditsSpent: 0, isActive: true, isAdmin: true, createdAt: new Date(now - 30 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 2, username: '音乐爱好者小明', email: 'xiaoming@example.com', credits: 850, totalCreditsEarned: 1000, totalCreditsSpent: 150, isActive: true, isAdmin: false, createdAt: new Date(now - 25 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 3, username: '创作达人小芳', email: 'xiaofang@example.com', credits: 2340, totalCreditsEarned: 3000, totalCreditsSpent: 660, isActive: true, isAdmin: false, createdAt: new Date(now - 20 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 4, username: '音乐制作人Leo', email: 'leo@example.com', credits: 5200, totalCreditsEarned: 6000, totalCreditsSpent: 800, isActive: true, isAdmin: false, createdAt: new Date(now - 18 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 5, username: '混音师王老师', email: 'wang@example.com', credits: 180, totalCreditsEarned: 1500, totalCreditsSpent: 1320, isActive: false, isAdmin: false, createdAt: new Date(now - 15 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 6, username: '业余歌手小美', email: 'xiaomei@example.com', credits: 430, totalCreditsEarned: 500, totalCreditsSpent: 70, isActive: true, isAdmin: false, createdAt: new Date(now - 12 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 7, username: '编曲师阿杰', email: 'ajie@example.com', credits: 3100, totalCreditsEarned: 3500, totalCreditsSpent: 400, isActive: true, isAdmin: false, createdAt: new Date(now - 10 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 8, username: '音效设计Lily', email: 'lily@example.com', credits: 760, totalCreditsEarned: 1200, totalCreditsSpent: 440, isActive: true, isAdmin: false, createdAt: new Date(now - 8 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 9, username: '钢琴师Ken', email: 'ken@example.com', credits: 950, totalCreditsEarned: 1000, totalCreditsSpent: 50, isActive: true, isAdmin: false, createdAt: new Date(now - 5 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+    { id: 10, username: '测试账号', email: 'test@example.com', credits: 0, totalCreditsEarned: 100, totalCreditsSpent: 100, isActive: true, isAdmin: false, createdAt: new Date(now - 2 * dayMs).toISOString(), updatedAt: new Date().toISOString() },
+  ] as User[]);
+
+  seedOnce(STORAGE_KEYS.tasks, [
+    { id: 1, userId: 2, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '轻快的钢琴曲', durationSec: 60, actualDurationSec: 58, costCredits: 120, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 3600000).toISOString(), completedAt: new Date(now - 3500000).toISOString() },
+    { id: 2, userId: 3, modelId: 2, modelName: 'VocalSynth AI', mode: 'song', prompt: '流行情歌', lyrics: '你是我心中最美的风景...', durationSec: 120, actualDurationSec: 118, costCredits: 360, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 7200000).toISOString(), completedAt: new Date(now - 7000000).toISOString() },
+    { id: 3, userId: 4, modelId: 3, modelName: 'BeatMaster X', mode: 'instrumental', prompt: '电子舞曲节拍', durationSec: 90, actualDurationSec: 88, costCredits: 360, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 10800000).toISOString(), completedAt: new Date(now - 10600000).toISOString() },
+    { id: 4, userId: 2, modelId: 2, modelName: 'VocalSynth AI', mode: 'song', prompt: '古风歌曲', lyrics: '山水之间，烟雨朦胧...', durationSec: 150, costCredits: 450, status: 'processing', isDeleted: false, createdAt: new Date(now - 300000).toISOString() },
+    { id: 5, userId: 6, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '宁静的夜晚', durationSec: 45, costCredits: 90, status: 'failed', errorMessage: 'AI模型生成失败，请稍后重试', isDeleted: false, createdAt: new Date(now - 14400000).toISOString(), completedAt: new Date(now - 14000000).toISOString() },
+    { id: 6, userId: 7, modelId: 2, modelName: 'VocalSynth AI', mode: 'instrumental', prompt: '电影配乐风格', durationSec: 180, actualDurationSec: 175, costCredits: 540, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 21600000).toISOString(), completedAt: new Date(now - 21000000).toISOString() },
+    { id: 7, userId: 3, modelId: 3, modelName: 'BeatMaster X', mode: 'instrumental', prompt: 'HIP-HOP节奏', durationSec: 60, actualDurationSec: 58, costCredits: 240, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 28800000).toISOString(), completedAt: new Date(now - 28200000).toISOString() },
+    { id: 8, userId: 8, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '欢快的尤克里里', durationSec: 30, costCredits: 60, status: 'pending', isDeleted: false, createdAt: new Date(now - 600000).toISOString() },
+    { id: 9, userId: 4, modelId: 2, modelName: 'VocalSynth AI', mode: 'song', prompt: '摇滚风格', lyrics: '燃烧吧，我的青春！', durationSec: 120, actualDurationSec: 120, costCredits: 360, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 43200000).toISOString(), completedAt: new Date(now - 42500000).toISOString() },
+    { id: 10, userId: 9, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '古典吉他独奏', durationSec: 90, actualDurationSec: 88, costCredits: 180, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 54000000).toISOString(), completedAt: new Date(now - 53500000).toISOString() },
+    { id: 11, userId: 2, modelId: 3, modelName: 'BeatMaster X', mode: 'instrumental', prompt: 'Lo-Fi 节奏', durationSec: 120, actualDurationSec: 118, costCredits: 480, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - dayMs).toISOString(), completedAt: new Date(now - dayMs + 120000).toISOString() },
+    { id: 12, userId: 5, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '悲伤的大提琴', durationSec: 60, costCredits: 120, status: 'failed', errorMessage: 'API超时', isDeleted: false, createdAt: new Date(now - dayMs - 3600000).toISOString(), completedAt: new Date(now - dayMs - 3500000).toISOString() },
+    { id: 13, userId: 7, modelId: 2, modelName: 'VocalSynth AI', mode: 'song', prompt: 'R&B情歌', lyrics: '你的微笑像阳光...', durationSec: 150, actualDurationSec: 148, costCredits: 450, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - dayMs - 7200000).toISOString(), completedAt: new Date(now - dayMs - 7000000).toISOString() },
+    { id: 14, userId: 3, modelId: 1, modelName: 'SonicWave Pro', mode: 'instrumental', prompt: '海浪声背景音乐', durationSec: 180, actualDurationSec: 176, costCredits: 360, status: 'completed', audioUrl: '/sample-audio.mp3', isDeleted: false, createdAt: new Date(now - 2 * dayMs).toISOString(), completedAt: new Date(now - 2 * dayMs + 180000).toISOString() },
+    { id: 15, userId: 6, modelId: 3, modelName: 'BeatMaster X', mode: 'instrumental', prompt: 'Trap 节拍', durationSec: 90, costCredits: 360, status: 'processing', isDeleted: false, createdAt: new Date(now - 120000).toISOString() },
+  ] as GenerationTask[]);
+
+  seedOnce(STORAGE_KEYS.orders, [
+    { id: 1, orderNo: 'ORD202505191001', userId: 2, packageId: 2, amountCents: 3000, creditsBought: 600, bonusCredits: 50, status: 'success', paymentMethod: 'wechat', paidAt: new Date(now - 3 * dayMs).toISOString(), createdAt: new Date(now - 3 * dayMs - 60000).toISOString() },
+    { id: 2, orderNo: 'ORD202505181002', userId: 3, packageId: 3, amountCents: 6000, creditsBought: 1500, bonusCredits: 200, status: 'success', paymentMethod: 'alipay', paidAt: new Date(now - 5 * dayMs).toISOString(), createdAt: new Date(now - 5 * dayMs - 120000).toISOString() },
+    { id: 3, orderNo: 'ORD202505171003', userId: 4, packageId: 4, amountCents: 12000, creditsBought: 3000, bonusCredits: 500, status: 'success', paymentMethod: 'wechat', paidAt: new Date(now - 7 * dayMs).toISOString(), createdAt: new Date(now - 7 * dayMs - 30000).toISOString() },
+    { id: 4, orderNo: 'ORD202505161004', userId: 7, packageId: 2, amountCents: 3000, creditsBought: 600, bonusCredits: 50, status: 'success', paymentMethod: 'alipay', paidAt: new Date(now - 10 * dayMs).toISOString(), createdAt: new Date(now - 10 * dayMs - 90000).toISOString() },
+    { id: 5, orderNo: 'ORD202505151005', userId: 5, packageId: 1, amountCents: 600, creditsBought: 100, bonusCredits: 0, status: 'success', paymentMethod: 'wechat', paidAt: new Date(now - 12 * dayMs).toISOString(), createdAt: new Date(now - 12 * dayMs - 60000).toISOString() },
+    { id: 6, orderNo: 'ORD202505141006', userId: 8, packageId: 1, amountCents: 600, creditsBought: 100, bonusCredits: 0, status: 'pending', paymentMethod: 'alipay', createdAt: new Date(now - 3600000).toISOString() },
+    { id: 7, orderNo: 'ORD202505131007', userId: 9, packageId: 2, amountCents: 3000, creditsBought: 600, bonusCredits: 50, status: 'pending', paymentMethod: 'wechat', createdAt: new Date(now - 7200000).toISOString() },
+    { id: 8, orderNo: 'ORD202505121008', userId: 2, packageId: 3, amountCents: 6000, creditsBought: 1500, bonusCredits: 200, status: 'failed', paymentMethod: 'alipay', createdAt: new Date(now - 8 * dayMs).toISOString() },
+  ] as CreditOrder[]);
+
+  seedOnce(STORAGE_KEYS.transactions, [
+    { id: 1, userId: 2, amount: 650, balanceAfter: 650, type: 'purchase', description: '购买进阶套餐，赠送50积分', createdAt: new Date(now - 3 * dayMs).toISOString() },
+    { id: 2, userId: 2, amount: -120, balanceAfter: 530, type: 'consumption', description: '音乐生成消耗 - SonicWave Pro', createdAt: new Date(now - 3600000).toISOString() },
+    { id: 3, userId: 2, amount: -450, balanceAfter: 80, type: 'consumption', description: '音乐生成消耗 - VocalSynth AI', createdAt: new Date(now - 7200000).toISOString() },
+    { id: 4, userId: 3, amount: 1700, balanceAfter: 1700, type: 'purchase', description: '购买专业套餐，赠送200积分', createdAt: new Date(now - 5 * dayMs).toISOString() },
+    { id: 5, userId: 3, amount: -360, balanceAfter: 1340, type: 'consumption', description: '音乐生成消耗 - VocalSynth AI', createdAt: new Date(now - 7200000).toISOString() },
+    { id: 6, userId: 3, amount: -240, balanceAfter: 1100, type: 'consumption', description: '音乐生成消耗 - BeatMaster X', createdAt: new Date(now - 28800000).toISOString() },
+    { id: 7, userId: 4, amount: 3500, balanceAfter: 3500, type: 'purchase', description: '购买大师套餐，赠送500积分', createdAt: new Date(now - 7 * dayMs).toISOString() },
+    { id: 8, userId: 4, amount: -360, balanceAfter: 3140, type: 'consumption', description: '音乐生成消耗 - BeatMaster X', createdAt: new Date(now - 10800000).toISOString() },
+    { id: 9, userId: 1, amount: 100, balanceAfter: 9999, type: 'manual', description: '系统初始化赠送', createdAt: new Date(now - 30 * dayMs).toISOString() },
+    { id: 10, userId: 6, amount: 100, balanceAfter: 100, type: 'purchase', description: '购买入门套餐', createdAt: new Date(now - 8 * dayMs).toISOString() },
+    { id: 11, userId: 6, amount: -90, balanceAfter: 10, type: 'consumption', description: '音乐生成消耗 - SonicWave Pro', createdAt: new Date(now - 14400000).toISOString() },
+    { id: 12, userId: 6, amount: 90, balanceAfter: 100, type: 'refund', description: '生成失败退款 - SonicWave Pro', createdAt: new Date(now - 14000000).toISOString() },
+    { id: 13, userId: 7, amount: 650, balanceAfter: 650, type: 'purchase', description: '购买进阶套餐，赠送50积分', createdAt: new Date(now - 10 * dayMs).toISOString() },
+    { id: 14, userId: 7, amount: -540, balanceAfter: 110, type: 'consumption', description: '音乐生成消耗 - VocalSynth AI', createdAt: new Date(now - 21600000).toISOString() },
+    { id: 15, userId: 8, amount: 100, balanceAfter: 100, type: 'purchase', description: '购买入门套餐', createdAt: new Date(now - 12 * dayMs).toISOString() },
+    { id: 16, userId: 9, amount: 100, balanceAfter: 100, type: 'initial', description: '新用户注册赠送100积分', createdAt: new Date(now - 5 * dayMs).toISOString() },
+  ] as CreditTransaction[]);
+
+  seedOnce(STORAGE_KEYS.logs, [
+    { id: 1, adminId: 1, action: 'login', targetType: 'user', targetId: 1, details: { ip: '127.0.0.1' }, ip: '127.0.0.1', createdAt: new Date(now - 60000).toISOString() },
+    { id: 2, adminId: 1, action: 'update', targetType: 'config', details: { key: 'initialCredits', from: 0, to: 100 }, ip: '127.0.0.1', createdAt: new Date(now - 180000).toISOString() },
+    { id: 3, adminId: 1, action: 'create', targetType: 'model', targetId: 3, details: { name: 'BeatMaster X' }, ip: '127.0.0.1', createdAt: new Date(now - 360000).toISOString() },
+    { id: 4, adminId: 1, action: 'toggle', targetType: 'user', targetId: 5, details: { active: false }, ip: '192.168.1.1', createdAt: new Date(now - 720000).toISOString() },
+    { id: 5, adminId: 1, action: 'adjust', targetType: 'user', targetId: 3, details: { amount: 500, reason: '活动奖励' }, ip: '127.0.0.1', createdAt: new Date(now - 1440000).toISOString() },
+    { id: 6, adminId: 1, action: 'delete', targetType: 'model', targetId: 4, details: { name: 'OldModel' }, ip: '127.0.0.1', createdAt: new Date(now - 2880000).toISOString() },
+    { id: 7, adminId: 1, action: 'update', targetType: 'package', targetId: 2, details: { priceCents: { from: 2500, to: 3000 } }, ip: '10.0.0.1', createdAt: new Date(now - 5760000).toISOString() },
+    { id: 8, adminId: 1, action: 'create', targetType: 'order', targetId: 1, details: { userId: 2, amount: 6000 }, ip: '127.0.0.1', createdAt: new Date(now - 8640000).toISOString() },
+    { id: 9, adminId: 1, action: 'toggle', targetType: 'model', targetId: 1, details: { active: false }, ip: '192.168.1.1', createdAt: new Date(now - 17280000).toISOString() },
+    { id: 10, adminId: 1, action: 'login', targetType: 'user', targetId: 1, details: { ip: '127.0.0.1' }, ip: '127.0.0.1', createdAt: new Date(now - 86400000).toISOString() },
+    { id: 11, adminId: 1, action: 'update', targetType: 'model', targetId: 2, details: { pricePerSecond: { from: 2, to: 3 } }, ip: '127.0.0.1', createdAt: new Date(now - 2 * dayMs).toISOString() },
+    { id: 12, adminId: 1, action: 'create', targetType: 'user', targetId: 10, details: { username: '测试账号' }, ip: '10.0.0.1', createdAt: new Date(now - 2 * dayMs).toISOString() },
+  ] as AdminLog[]);
 }
 
 initMockData();

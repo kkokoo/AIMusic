@@ -278,7 +278,7 @@ export default function ModelsPage() {
 
   async function handleToggleActive(model: AIModel) {
     try {
-      await apiClient.put(`/admin/models/${model.id}`, { is_active: !model.isActive })
+      await apiClient.put(`/admin/models/${model.id}`, { isActive: !model.isActive })
       toast('success', model.isActive ? '模型已禁用' : '模型已启用')
       await loadModels()
     } catch {

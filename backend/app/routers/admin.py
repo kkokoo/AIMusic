@@ -435,6 +435,64 @@ async def update_config(
     return ApiResponse.ok(message="配置更新成功")
 
 
+@router.get("/api/admin/tasks")
+async def get_all_tasks(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        select(GenerationTask)
+        .order_by(GenerationTask.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    all_tasks = result.scalars().all()
+
+    model_ids = list({t.model_id for t in all_tasks if t.model_id})
+    model_map = {}
+    if model_ids:
+        model_result = await db.execute(select(AIModel).where(AIModel.id.in_(model_ids)))
+        for m in model_result.scalars().all():
+            model_map[m.id] = m.name
+
+    total = len(all_tasks)
+    start = (page - 1) * page_size
+    page_items = all_tasks[start:start + page_size]
+
+    items = []
+    for t in page_items:
+        model_name = model_map.get(t.model_id) or "未知"
+        items.append({
+            "id": t.id,
+            "user_id": t.user_id,
+            "model_id": t.model_id,
+            "model_name": model_name,
+            "mode": t.mode,
+            "prompt": t.prompt,
+            "lyrics": t.lyrics,
+            "style": t.style,
+            "duration_sec": t.duration_sec,
+            "actual_duration_sec": t.actual_duration_sec,
+            "cost_credits": t.cost_credits,
+            "status": t.status,
+            "audio_url": t.audio_url,
+            "error_message": t.error_message,
+            "is_deleted": t.is_deleted,
+            "custom_name": t.custom_name,
+            "created_at": t.created_at.isoformat() + 'Z' if t.created_at else None,
+            "completed_at": t.completed_at.isoformat() + 'Z' if t.completed_at else None,
+        })
+
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
+
+
 @router.get("/api/admin/logs")
 async def get_logs(
     current_user: User = Depends(get_admin_user),

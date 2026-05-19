@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
 import { useUIStore } from '@/stores/uiStore'
-import { mockApi } from '@/mock/data'
+import apiClient from '@/lib/axios'
 import { formatDate, formatOrderNo, formatPrice } from '@/utils/format'
 import type { CreditOrder } from '@/types'
 
@@ -46,15 +46,19 @@ export default function OrdersPage() {
 
   async function loadOrders() {
     setLoading(true)
-    const data = await mockApi.getAdminOrders()
-    setOrders(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+    try {
+      const res = await apiClient.get('/admin/orders')
+      setOrders(res.data as CreditOrder[])
+    } catch {
+      toast('error', '加载订单列表失败')
+    }
     setLoading(false)
   }
 
-  async function handleComplete(order: CreditOrder) {
-    setCompleting(order.id)
+  async function handleComplete(orderId: number) {
+    setCompleting(orderId)
     try {
-      await mockApi.completeOrder(order.id, order.userId)
+      await apiClient.post(`/admin/orders/${orderId}/complete`)
       toast('success', '订单已完成')
       await loadOrders()
     } catch {
@@ -136,7 +140,7 @@ export default function OrdersPage() {
                       {order.status === 'pending' && (
                         <Button
                           size="sm"
-                          onClick={() => handleComplete(order)}
+                          onClick={() => handleComplete(order.id)}
                           loading={completing === order.id}
                         >
                           <CheckCircle className="w-3.5 h-3.5" />

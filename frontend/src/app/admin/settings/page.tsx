@@ -2,18 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Settings } from 'lucide-react'
+import { Settings as SettingsIcon, Save } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
 import Skeleton from '@/components/ui/Skeleton'
 import { useUIStore } from '@/stores/uiStore'
-import { mockApi } from '@/mock/data'
-import { cn } from '@/utils/cn'
+import apiClient from '@/lib/axios'
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
 }
 
 const itemVariants = {
@@ -21,52 +19,63 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
+interface SystemConfig {
+  initialCredits: number
+  maxConcurrent: number
+  autoRefund: boolean
+  creditPricePerUnit: number
+}
+
 export default function SettingsPage() {
   const toast = useUIStore((s) => s.toast)
-  const [configs, setConfigs] = useState<Record<string, unknown>>({})
+  const [config, setConfig] = useState<SystemConfig | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savingSection, setSavingSection] = useState<string | null>(null)
-
-  const [initialCredits, setInitialCredits] = useState(100)
-  const [maxConcurrent, setMaxConcurrent] = useState(3)
-  const [autoRefund, setAutoRefund] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    loadConfigs()
+    loadConfig()
   }, [])
 
-  async function loadConfigs() {
+  async function loadConfig() {
     setLoading(true)
-    const data = await mockApi.getConfigs()
-    setConfigs(data)
-    setInitialCredits((data.initialCredits as number) ?? 100)
-    setMaxConcurrent((data.maxConcurrent as number) ?? 3)
-    setAutoRefund((data.autoRefund as boolean) ?? true)
+    try {
+      const res = await apiClient.get('/admin/config')
+      const raw = res.data as Record<string, unknown>
+      setConfig({
+        initialCredits: (raw.initialCredits as number) ?? 0,
+        maxConcurrent: (raw.maxConcurrent as number) ?? 3,
+        autoRefund: raw.autoRefund === true || raw.autoRefund === 'true',
+        creditPricePerUnit: (raw.creditPricePerUnit as number) ?? 0.06,
+      })
+    } catch {
+      toast('error', '加载系统配置失败')
+    }
     setLoading(false)
   }
 
-  async function handleSaveBasic() {
-    setSavingSection('basic')
+  async function handleSave() {
+    if (!config) return
+    setSaving(true)
     try {
-      await mockApi.updateConfigs({ initialCredits, maxConcurrent, autoRefund })
-      toast('success', '基础设置已保存')
+      await apiClient.put('/admin/config', config)
+      toast('success', '系统配置已更新')
+      await loadConfig()
     } catch {
       toast('error', '保存失败')
     }
-    setSavingSection(null)
+    setSaving(false)
   }
 
   if (loading) {
     return (
       <div className="space-y-6">
         <Skeleton width={160} height={32} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton variant="rectangular" height={280} />
-          <Skeleton variant="rectangular" height={280} />
-        </div>
+        <Skeleton variant="rectangular" height={300} />
       </div>
     )
   }
+
+  if (!config) return null
 
   return (
     <motion.div
@@ -75,119 +84,69 @@ export default function SettingsPage() {
       animate="visible"
       className="space-y-6"
     >
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-cyan-neon/10 flex items-center justify-center">
-          <Settings className="w-5 h-5 text-cyan-neon" />
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-neon/10 flex items-center justify-center">
+            <SettingsIcon className="w-5 h-5 text-cyan-neon" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">系统设置</h1>
         </div>
-        <h1 className="text-2xl font-bold text-white">系统配置</h1>
+        <Button onClick={handleSave} loading={saving}>
+          <Save className="w-4 h-4" />
+          保存设置
+        </Button>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div variants={itemVariants}>
-          <Card
-            header={
-              <h3 className="font-semibold text-white">基础设置</h3>
-            }
-            footer={
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSaveBasic}
-                  loading={savingSection === 'basic'}
-                >
-                  保存设置
-                </Button>
-              </div>
-            }
-          >
-            <div className="space-y-4">
-              <Input
-                label="新用户初始积分"
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <h3 className="text-lg font-semibold text-white mb-4">积分设置</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block mb-1.5 text-sm text-text-muted">新用户注册赠送积分</label>
+              <input
                 type="number"
-                value={initialCredits || ''}
-                onChange={(e) => setInitialCredits(Number(e.target.value))}
+                value={config.initialCredits}
+                onChange={(e) => setConfig({ ...config, initialCredits: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
               />
-              <Input
-                label="最大并发任务数"
+            </div>
+            <div>
+              <label className="block mb-1.5 text-sm text-text-muted">积分单价（元/积分）</label>
+              <input
                 type="number"
-                value={maxConcurrent || ''}
-                onChange={(e) => setMaxConcurrent(Number(e.target.value))}
+                step="0.001"
+                value={config.creditPricePerUnit}
+                onChange={(e) => setConfig({ ...config, creditPricePerUnit: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
               />
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <span className="text-sm text-text-secondary">
-                    任务失败自动退款
-                  </span>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    生成失败后自动退还消耗的积分
-                  </p>
-                </div>
-                <button
-                  onClick={() => setAutoRefund(!autoRefund)}
-                  className={cn(
-                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0',
-                    autoRefund ? 'bg-cyan-neon/30' : 'bg-space-600'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'inline-block h-4 w-4 rounded-full bg-white transition-transform',
-                      autoRefund ? 'translate-x-6' : 'translate-x-1'
-                    )}
-                  />
-                </button>
-              </div>
             </div>
-          </Card>
-        </motion.div>
+          </div>
+        </Card>
 
-        <motion.div variants={itemVariants}>
-          <Card header={<h3 className="font-semibold text-white">支付配置</h3>}>
-            <div className="space-y-4">
-              <div className="rounded-xl bg-space-700/50 border border-space-600/50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white font-medium">微信支付</span>
-                  <span className="text-xs text-text-muted">未配置</span>
-                </div>
-                <p className="text-xs text-text-muted">
-                  请在系统环境变量中配置微信支付商户号和API密钥
-                </p>
-              </div>
-              <div className="rounded-xl bg-space-700/50 border border-space-600/50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white font-medium">支付宝</span>
-                  <span className="text-xs text-text-muted">未配置</span>
-                </div>
-                <p className="text-xs text-text-muted">
-                  请在系统环境变量中配置支付宝APPID和商户私钥
-                </p>
-              </div>
+        <Card>
+          <h3 className="text-lg font-semibold text-white mb-4">系统设置</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block mb-1.5 text-sm text-text-muted">最大并发任务数</label>
+              <input
+                type="number"
+                value={config.maxConcurrent}
+                onChange={(e) => setConfig({ ...config, maxConcurrent: parseInt(e.target.value) || 1 })}
+                className="w-full px-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
+              />
             </div>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card header={<h3 className="font-semibold text-white">关于系统</h3>}>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">系统版本</span>
-                <span className="text-white font-mono">v1.0.0</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">前端框架</span>
-                <span className="text-white font-mono">Next.js</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">数据处理</span>
-                <span className="text-amber-400 font-mono text-xs">Mock Data (本地存储)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">主题</span>
-                <span className="text-cyan-neon">Cyberpunk Neon Dark</span>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.autoRefund}
+                onChange={(e) => setConfig({ ...config, autoRefund: e.target.checked })}
+                className="w-4 h-4 rounded border-space-600 bg-space-700 text-cyan-neon focus:ring-cyan-neon"
+              />
+              <span className="text-sm text-text-muted">生成失败时自动退款</span>
+            </label>
+          </div>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }

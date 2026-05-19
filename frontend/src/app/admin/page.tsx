@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -9,14 +9,16 @@ import {
   Users,
   Cpu,
   TrendingUp,
+  RefreshCw,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 import Skeleton from '@/components/ui/Skeleton'
-import { mockApi } from '@/mock/data'
+import apiClient from '@/lib/axios'
 import { formatDate, taskStatusLabels } from '@/utils/format'
-import type { DashboardStats, GenerationTask } from '@/types'
+import type { GenerationTask } from '@/types'
 
 const PIE_COLORS = ['#00f0ff', '#8b5cf6', '#ff00e5', '#00ff88', '#facc15']
 
@@ -82,22 +84,58 @@ const statusBadgeVariant: Record<string, 'cyan' | 'purple' | 'green' | 'red' | '
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats] = useState<{
+    todayGenerations: number
+    todayRevenue: number
+    activeUsers: number
+    modelUsage: { name: string; count: number }[]
+  } | null>(null)
   const [tasks, setTasks] = useState<GenerationTask[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true)
+    }
+    try {
+      const [dashboardRes, tasksRes] = await Promise.all([
+        apiClient.get('/admin/dashboard'),
+        apiClient.get('/admin/tasks', { params: { page: 1, page_size: 10 } }),
+      ])
+      const dashboardData = dashboardRes.data as {
+        todayGenerations: number
+        todayRevenue: number
+        activeUsers: number
+        modelUsage: { modelName: string; count: number }[]
+      }
+      setStats({
+        todayGenerations: dashboardData.todayGenerations ?? 0,
+        todayRevenue: dashboardData.todayRevenue ?? 0,
+        activeUsers: dashboardData.activeUsers ?? 0,
+        modelUsage: (dashboardData.modelUsage || []).map((m) => ({
+          name: m.modelName,
+          count: m.count,
+        })),
+      })
+      setTasks((tasksRes.data as { items: GenerationTask[] }).items || [])
+    } catch {
+      // API unavailable, show empty state
+    }
+    setLoading(false)
+    setRefreshing(false)
+  }, [])
 
   useEffect(() => {
-    async function load() {
-      const [dashboardData, allTasks] = await Promise.all([
-        mockApi.getDashboard(),
-        mockApi.getHistory(0, 1, 10).then((r) => r.items),
-      ])
-      setStats(dashboardData)
-      setTasks(allTasks)
-      setLoading(false)
-    }
-    load()
-  }, [])
+    loadData()
+    const interval = setInterval(() => loadData(true), 30000)
+    return () => clearInterval(interval)
+  }, [loadData])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    await loadData(true)
+  }
 
   if (loading) {
     return (
@@ -128,11 +166,17 @@ export default function DashboardPage() {
       animate="visible"
       className="space-y-6"
     >
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
-        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-cyan-neon/10 flex items-center justify-center">
-          <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5 text-cyan-neon" />
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-cyan-neon/10 flex items-center justify-center">
+            <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5 text-cyan-neon" />
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">仪表盘</h1>
         </div>
-        <h1 className="text-xl md:text-2xl font-bold text-white">仪表盘</h1>
+        <Button variant="ghost" size="sm" onClick={handleRefresh} loading={refreshing}>
+          <RefreshCw className="w-4 h-4" />
+          刷新
+        </Button>
       </motion.div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

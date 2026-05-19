@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Users, Coins } from 'lucide-react'
+import { Users as UsersIcon, Shield, Ban, Check, Coins } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import Modal from '@/components/ui/Modal'
-import Input from '@/components/ui/Input'
 import Skeleton from '@/components/ui/Skeleton'
+import Modal from '@/components/ui/Modal'
 import { useUIStore } from '@/stores/uiStore'
-import { mockApi } from '@/mock/data'
+import apiClient from '@/lib/axios'
 import { formatDate } from '@/utils/format'
-import { cn } from '@/utils/cn'
 import type { User } from '@/types'
 
 const containerVariants = {
@@ -29,12 +27,11 @@ export default function UsersPage() {
   const toast = useUIStore((s) => s.toast)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [creditModal, setCreditModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [showCreditsModal, setShowCreditsModal] = useState(false)
   const [creditAmount, setCreditAmount] = useState(0)
   const [creditReason, setCreditReason] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [toggling, setToggling] = useState<number | null>(null)
+  const [adjusting, setAdjusting] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -42,50 +39,50 @@ export default function UsersPage() {
 
   async function loadUsers() {
     setLoading(true)
-    const data = await mockApi.getAdminUsers()
-    setUsers(data)
+    try {
+      const res = await apiClient.get('/admin/users')
+      setUsers(res.data as User[])
+    } catch {
+      toast('error', '加载用户列表失败')
+    }
     setLoading(false)
   }
 
-  function openCreditModal(user: User) {
+  function openCredits(user: User) {
     setSelectedUser(user)
     setCreditAmount(0)
     setCreditReason('')
-    setCreditModal(true)
+    setShowCreditsModal(true)
   }
 
   async function handleAdjustCredits() {
-    if (!selectedUser) return
-    if (creditAmount === 0) {
-      toast('error', '请输入调整金额')
+    if (!selectedUser || !creditAmount) {
+      toast('error', '请填写积分数量')
       return
     }
-    if (!creditReason.trim()) {
-      toast('error', '请输入调整原因')
-      return
-    }
-    setSaving(true)
+    setAdjusting(true)
     try {
-      await mockApi.adjustCredits(selectedUser.id, creditAmount, creditReason)
-      toast('success', `积分已调整 ${creditAmount > 0 ? '+' : ''}${creditAmount}`)
-      setCreditModal(false)
+      await apiClient.post(`/admin/users/${selectedUser.id}/credits`, {
+        amount: creditAmount,
+        reason: creditReason || undefined,
+      })
+      toast('success', '积分已调整')
+      setShowCreditsModal(false)
       await loadUsers()
     } catch {
-      toast('error', '操作失败')
+      toast('error', '调整积分失败')
     }
-    setSaving(false)
+    setAdjusting(false)
   }
 
   async function handleToggleStatus(user: User) {
-    setToggling(user.id)
     try {
-      await mockApi.toggleUserStatus(user.id)
+      await apiClient.put(`/admin/users/${user.id}/status`)
       toast('success', user.isActive ? '用户已禁用' : '用户已启用')
       await loadUsers()
     } catch {
       toast('error', '操作失败')
     }
-    setToggling(null)
   }
 
   if (loading) {
@@ -106,7 +103,7 @@ export default function UsersPage() {
     >
       <motion.div variants={itemVariants} className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-cyan-neon/10 flex items-center justify-center">
-          <Users className="w-5 h-5 text-cyan-neon" />
+          <UsersIcon className="w-5 h-5 text-cyan-neon" />
         </div>
         <h1 className="text-2xl font-bold text-white">用户管理</h1>
       </motion.div>
@@ -121,11 +118,11 @@ export default function UsersPage() {
                   <th className="text-left py-3 font-medium">用户名</th>
                   <th className="text-left py-3 font-medium">邮箱</th>
                   <th className="text-right py-3 font-medium">积分</th>
-                  <th className="text-right py-3 font-medium">累计获得</th>
-                  <th className="text-right py-3 font-medium">累计消耗</th>
+                  <th className="text-right py-3 font-medium">总消费</th>
+                  <th className="text-center py-3 font-medium">角色</th>
                   <th className="text-center py-3 font-medium">状态</th>
-                  <th className="text-right py-3 font-medium">注册时间</th>
-                  <th className="text-right py-3 font-medium">操作</th>
+                  <th className="text-left py-3 font-medium">注册时间</th>
+                  <th className="text-center py-3 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,69 +131,51 @@ export default function UsersPage() {
                     key={user.id}
                     className="border-b border-space-600/20 hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="py-3 text-text-muted font-mono text-xs">
-                      #{user.id}
-                    </td>
-                    <td className="py-3 text-white font-medium">
-                      {user.username}
-                      {user.isAdmin && (
-                        <span className="ml-2">
-                          <Badge variant="purple" dot>
-                            管理员
-                          </Badge>
-                        </span>
-                      )}
-                    </td>
+                    <td className="py-3 text-text-muted font-mono text-xs">#{user.id}</td>
+                    <td className="py-3 text-white font-medium">{user.username}</td>
                     <td className="py-3 text-text-secondary">{user.email}</td>
-                    <td
-                      className="py-3 text-right text-cyan-neon font-mono text-xs"
-                      style={{ fontFamily: 'var(--font-orbitron)' }}
-                    >
-                      {user.credits}
+                    <td className="py-3 text-right text-cyan-neon font-mono">
+                      {user.credits?.toLocaleString() ?? 0}
                     </td>
-                    <td className="py-3 text-right text-green-neon font-mono text-xs">
-                      {user.totalCreditsEarned}
-                    </td>
-                    <td className="py-3 text-right text-red-neon font-mono text-xs">
-                      {user.totalCreditsSpent}
+                    <td className="py-3 text-right text-text-muted font-mono">
+                      {user.totalCreditsSpent?.toLocaleString() ?? 0}
                     </td>
                     <td className="py-3 text-center">
-                      <Badge
-                        variant={user.isActive ? 'green' : 'red'}
-                        dot
-                      >
-                        {user.isActive ? '正常' : '禁用'}
-                      </Badge>
+                      {user.isAdmin ? (
+                        <Badge variant="purple">
+                          <Shield className="w-3 h-3" />
+                          管理员
+                        </Badge>
+                      ) : (
+                        <Badge variant="gray">用户</Badge>
+                      )}
                     </td>
-                    <td className="py-3 text-right text-text-muted text-xs whitespace-nowrap">
+                    <td className="py-3 text-center">
+                      {user.isActive ? (
+                        <Badge variant="green" dot>正常</Badge>
+                      ) : (
+                        <Badge variant="red" dot>禁用</Badge>
+                      )}
+                    </td>
+                    <td className="py-3 text-text-muted text-xs whitespace-nowrap">
                       {formatDate(user.createdAt)}
                     </td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => openCreditModal(user)}
-                        >
-                          <Coins className="w-3.5 h-3.5" />
-                          调整积分
+                    <td className="py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openCredits(user)}>
+                          <Coins className="w-4 h-4" />
                         </Button>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleToggleStatus(user)}
-                          disabled={toggling === user.id}
-                          className={cn(
-                            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                            user.isActive ? 'bg-cyan-neon/30' : 'bg-space-600',
-                            toggling === user.id && 'opacity-50'
-                          )}
                         >
-                          <span
-                            className={cn(
-                              'inline-block h-4 w-4 rounded-full bg-white transition-transform',
-                              user.isActive ? 'translate-x-6' : 'translate-x-1'
-                            )}
-                          />
-                        </button>
+                          {user.isActive ? (
+                            <Ban className="w-4 h-4 text-red-400" />
+                          ) : (
+                            <Check className="w-4 h-4 text-green-400" />
+                          )}
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -223,50 +202,32 @@ export default function UsersPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-medium text-sm">{user.username}</span>
+                    <span className="text-white font-medium">{user.username}</span>
                     {user.isAdmin && (
-                      <Badge variant="purple" dot>管理员</Badge>
+                      <Badge variant="purple">Admin</Badge>
                     )}
-                    <Badge variant={user.isActive ? 'green' : 'red'} dot>
-                      {user.isActive ? '正常' : '禁用'}
-                    </Badge>
                   </div>
-                  <span
-                    className="text-cyan-neon font-mono text-xs font-bold"
-                    style={{ fontFamily: 'var(--font-orbitron)' }}
-                  >
-                    {user.credits} 积分
+                  <span className="text-cyan-neon font-mono text-sm">
+                    {user.credits?.toLocaleString() ?? 0} 积分
                   </span>
                 </div>
-                <div className="text-text-secondary text-xs mb-2 truncate">{user.email}</div>
+                <div className="text-text-muted text-xs mb-2">{user.email}</div>
                 <div className="flex items-center justify-between">
-                  <span className="text-text-muted text-xs">{formatDate(user.createdAt)}</span>
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => openCreditModal(user)}
-                    >
-                      <Coins className="w-3.5 h-3.5" />
-                      调整
+                    <Button variant="ghost" size="sm" onClick={() => openCredits(user)}>
+                      <Coins className="w-4 h-4" />
                     </Button>
-                    <button
-                      onClick={() => handleToggleStatus(user)}
-                      disabled={toggling === user.id}
-                      className={cn(
-                        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                        user.isActive ? 'bg-cyan-neon/30' : 'bg-space-600',
-                        toggling === user.id && 'opacity-50'
+                    <Button variant="ghost" size="sm" onClick={() => handleToggleStatus(user)}>
+                      {user.isActive ? (
+                        <Ban className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <Check className="w-4 h-4 text-green-400" />
                       )}
-                    >
-                      <span
-                        className={cn(
-                          'inline-block h-4 w-4 rounded-full bg-white transition-transform',
-                          user.isActive ? 'translate-x-6' : 'translate-x-1'
-                        )}
-                      />
-                    </button>
+                    </Button>
                   </div>
+                  <span className="text-text-muted text-xs">
+                    {formatDate(user.createdAt)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -275,45 +236,43 @@ export default function UsersPage() {
       </motion.div>
 
       <Modal
-        isOpen={creditModal}
-        onClose={() => setCreditModal(false)}
-        title={`调整积分 - ${selectedUser?.username}`}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setCreditModal(false)}>
-              取消
-            </Button>
-            <Button onClick={handleAdjustCredits} loading={saving}>
-              确认调整
-            </Button>
-          </>
-        }
+        isOpen={showCreditsModal}
+        onClose={() => setShowCreditsModal(false)}
+        title={`调整积分 - ${selectedUser?.username ?? ''}`}
       >
         <div className="space-y-4">
+          <p className="text-sm text-text-muted">
+            当前积分：<span className="text-cyan-neon font-mono">{selectedUser?.credits?.toLocaleString() ?? 0}</span>
+          </p>
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-text-secondary">
-              当前积分
+            <label className="block mb-1.5 text-sm text-text-muted">
+              调整数量（正数增加，负数扣除）
             </label>
-            <p
-              className="text-2xl font-bold text-cyan-neon"
-              style={{ fontFamily: 'var(--font-orbitron)' }}
-            >
-              {selectedUser?.credits ?? 0}
-            </p>
+            <input
+              type="number"
+              value={creditAmount}
+              onChange={(e) => setCreditAmount(parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
+              placeholder="例如：100"
+            />
           </div>
-          <Input
-            label="调整数量（正数为增加，负数为减少）"
-            type="number"
-            value={creditAmount || ''}
-            onChange={(e) => setCreditAmount(Number(e.target.value))}
-            placeholder="如 100 或 -50"
-          />
-          <Input
-            label="调整原因"
-            value={creditReason}
-            onChange={(e) => setCreditReason(e.target.value)}
-            placeholder="请填写调整原因..."
-          />
+          <div>
+            <label className="block mb-1.5 text-sm text-text-muted">原因（可选）</label>
+            <input
+              value={creditReason}
+              onChange={(e) => setCreditReason(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
+              placeholder="例如：活动奖励"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setShowCreditsModal(false)}>
+              取消
+            </Button>
+            <Button onClick={handleAdjustCredits} loading={adjusting}>
+              确认调整
+            </Button>
+          </div>
         </div>
       </Modal>
     </motion.div>
