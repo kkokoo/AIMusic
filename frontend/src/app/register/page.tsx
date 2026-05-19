@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
@@ -12,7 +11,6 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import apiClient from '@/lib/axios'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -20,49 +18,13 @@ export default function RegisterPage() {
   const isLoading = useAuthStore((s) => s.isLoading)
   const toast = useUIStore((s) => s.toast)
 
-  const [sendingCode, setSendingCode] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
   const {
     register,
     handleSubmit,
-    getValues,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   })
-
-  const sendVerifyCode = useCallback(async () => {
-    const email = getValues('email')
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast('error', '请先输入有效的邮箱地址')
-      return
-    }
-
-    setSendingCode(true)
-    try {
-      await apiClient.post('/auth/send-verify-code', { email })
-      toast('success', '验证码已发送，请查收邮件')
-
-      setCountdown(60)
-      if (timerRef.current) clearInterval(timerRef.current)
-      timerRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } catch (err: unknown) {
-      const error = err as { error?: string; message?: string }
-      toast('error', error?.error || error?.message || '发送失败，请重试')
-    } finally {
-      setSendingCode(false)
-    }
-  }, [getValues, toast])
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
@@ -70,7 +32,6 @@ export default function RegisterPage() {
         username: data.username,
         email: data.email,
         password: data.password,
-        verifyCode: data.verifyCode,
       })
       toast('success', '注册成功！')
       router.push('/create')
@@ -163,37 +124,6 @@ export default function RegisterPage() {
                 error={errors.email?.message}
                 {...register('email')}
               />
-
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-text-secondary">
-                  验证码
-                </label>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      placeholder="请输入6位验证码"
-                      maxLength={6}
-                      className={`w-full px-4 py-2.5 rounded-lg bg-space-700 border ${
-                        errors.verifyCode ? 'border-red-500' : 'border-space-600'
-                      } text-white placeholder-text-muted focus:outline-none focus:border-cyan-neon transition-colors`}
-                      {...register('verifyCode')}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={countdown > 0 || sendingCode}
-                    onClick={sendVerifyCode}
-                    className="whitespace-nowrap shrink-0"
-                  >
-                    {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '发送验证码'}
-                  </Button>
-                </div>
-                {errors.verifyCode && (
-                  <p className="text-xs text-red-400 mt-1">{errors.verifyCode.message}</p>
-                )}
-              </div>
 
               <Input
                 label="密码"

@@ -10,7 +10,6 @@ export const registerSchema = z.object({
   email: z.string().email('请输入有效的邮箱地址'),
   password: z.string().min(6, '密码至少6位'),
   confirmPassword: z.string(),
-  verifyCode: z.string().length(6, '验证码为6位数字'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: '两次密码不一致',
   path: ['confirmPassword'],
