@@ -28,6 +28,17 @@ class GenerateLyricsRequest(BaseModel):
     include_bridge: bool = True
 
 
+class AutoCompleteRequest(BaseModel):
+    mode: str
+    prompt: str | None = None
+    style: str | None = None
+    mood: str | None = None
+    bpm: int | None = None
+    lyrics: str | None = None
+    vocal_style: str | None = None
+    music_name: str | None = None
+
+
 class TaskResponse(BaseModel):
     id: int
     user_id: int

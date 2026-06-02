@@ -18,10 +18,12 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Bot,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useModelStore } from '@/stores/modelStore'
 import { useTaskStore } from '@/stores/taskStore'
+import { useUIStore } from '@/stores/uiStore'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Slider from '@/components/ui/Slider'
@@ -1003,6 +1005,7 @@ export default function CreatePage() {
   const [audioFile, setAudioFile] = useState<File | null>(null)
 
   const [generating, setGenerating] = useState(false)
+  const [aiFilling, setAiFilling] = useState(false)
   const [mobileShowResult, setMobileShowResult] = useState(false)
   const [musicName, setMusicName] = useState('')
 
@@ -1042,6 +1045,26 @@ export default function CreatePage() {
     costCredits >= 0 &&
     hasEnoughCredits &&
     (mode !== 'cover' || audioFile !== null)
+
+  const validateForm = useCallback((): string | null => {
+    if (!selectedModel) return '请先选择模型'
+    if (!hasEnoughCredits) return '积分不足，请先充值'
+
+    switch (mode) {
+      case 'instrumental':
+        if (!prompt.trim() && !style && !mood) return '请至少填写音乐描述、风格或情绪中的一项'
+        break
+      case 'song':
+        if (!prompt.trim() && !lyrics.trim() && !vocalStyle) return '请至少填写歌曲描述、歌词或声音风格中的一项'
+        break
+      case 'cover':
+        if (!audioFile) return '请上传参考音频文件'
+        if (!prompt.trim()) return '请至少填写翻唱风格'
+        break
+    }
+
+    return null
+  }, [selectedModel, hasEnoughCredits, mode, prompt, style, mood, lyrics, vocalStyle, audioFile])
 
   const handleGenerate = useCallback(async () => {
     if (!selectedModel || !user) return
@@ -1099,7 +1122,54 @@ export default function CreatePage() {
     musicName,
     submitTask,
     startPolling,
+    audioFile,
   ])
+
+  const handleAIAutoComplete = useCallback(async () => {
+    const validationError = validateForm()
+    if (validationError) {
+      useUIStore.getState().toast('warning', validationError)
+      return
+    }
+
+    setAiFilling(true)
+    try {
+      const res = await apiClient.post('/generation/auto-complete', {
+        mode,
+        prompt: prompt || undefined,
+        style: style || undefined,
+        mood: mood || undefined,
+        bpm: mode === 'instrumental' ? bpm : undefined,
+        lyrics: (mode === 'song' || mode === 'cover') ? (lyrics || undefined) : undefined,
+        vocalStyle: mode === 'song' ? (vocalStyle || undefined) : undefined,
+        musicName: musicName.trim() || undefined,
+      })
+
+      const data = res.data
+
+      if (data.prompt && !prompt.trim()) setPrompt(data.prompt)
+      if (data.style && !style) setStyle(data.style)
+      if (data.mood && !mood) setMood(data.mood)
+      if (data.bpm && mode === 'instrumental') setBpm(data.bpm)
+      if (data.lyrics && !lyrics.trim()) setLyrics(data.lyrics)
+      if (data.vocalStyle && !vocalStyle) setVocalStyle(data.vocalStyle)
+      if (data.musicName && !musicName.trim()) setMusicName(data.musicName)
+
+      useUIStore.getState().toast('success', 'AI已自动补齐内容，正在生成音乐...')
+
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      await handleGenerate()
+    } catch (err: unknown) {
+      const error = err as { message?: string; error?: string }
+      useUIStore.getState().toast(
+        'error',
+        error?.message || error?.error || 'AI补齐失败，请重试'
+      )
+    } finally {
+      setAiFilling(false)
+    }
+  }, [validateForm, mode, prompt, style, mood, bpm, lyrics, vocalStyle, musicName, handleGenerate])
 
   return (
     <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden">
@@ -1190,6 +1260,43 @@ export default function CreatePage() {
         </div>
 
         <div className="p-4 md:p-5 border-t border-space-600/50 bg-space-800/95 backdrop-blur-sm shrink-0">
+          {selectedModel && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3"
+            >
+              <button
+                onClick={handleAIAutoComplete}
+                disabled={aiFilling || generating}
+                className={cn(
+                  'w-full inline-flex items-center justify-center gap-2.5 py-3 px-7 text-sm font-semibold rounded-xl transition-all duration-300',
+                  'bg-gradient-to-r from-purple-neon via-[#a855f7] to-[#7c3aed] text-white',
+                  'hover:from-[#c084fc] hover:via-[#a855f7] hover:to-[#8b5cf6]',
+                  'hover:shadow-[0_0_24px_var(--color-purple-glow)]',
+                  'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none',
+                  'border border-purple-neon/30'
+                )}
+              >
+                {aiFilling ? (
+                  <>
+                    <Loader2 className="w-5 h-5 shrink-0 animate-spin" />
+                    AI正在分析并补全...
+                  </>
+                ) : (
+                  <>
+                    <Bot className="w-5 h-5 shrink-0" />
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    AI 一键补齐并生成
+                  </>
+                )}
+              </button>
+              <p className="text-center text-[11px] text-text-muted mt-1.5 leading-relaxed">
+                AI将根据已填写内容自动补全剩余信息并直接生成音乐
+              </p>
+            </motion.div>
+          )}
+
           {!hasEnoughCredits && selectedModel ? (
             <Button
               variant="danger"

@@ -13,13 +13,14 @@ from app.models.user import User
 from app.models.ai_model import AIModel
 from app.models.generation_task import GenerationTask
 from app.models.credit_transaction import CreditTransaction
-from app.schemas.generation import SubmitTaskRequest, TaskResponse, GenerateLyricsRequest, RenameTaskRequest
+from app.schemas.generation import SubmitTaskRequest, TaskResponse, GenerateLyricsRequest, RenameTaskRequest, AutoCompleteRequest
 from app.utils.auth import get_current_user
 from app.utils.response import ApiResponse
 from app.utils.pagination import paginate
 from app.utils.logger import get_logger
 from app.utils.storage import upload_bytes
 from app.utils.lyrics import generate_lyrics as generate_ai_lyrics
+from app.utils.auto_complete import auto_complete_form
 from app.adapters.minimax import MiniMaxMusicAdapter
 
 logger = get_logger("generation")
@@ -518,3 +519,48 @@ async def generate_lyrics(
         "cost_credits": cost_credits,
         "balance_after": current_user.credits,
     })
+
+
+@router.post("/api/generation/auto-complete")
+async def auto_complete(
+    req: AutoCompleteRequest,
+    current_user: User = Depends(get_current_user),
+):
+    logger.info(
+        "[auto_complete] 收到补齐请求 | user_id=%d | mode=%s | prompt=%s | style=%s | mood=%s | bpm=%s | lyrics_len=%d | vocal_style=%s | music_name=%s",
+        current_user.id, req.mode,
+        (req.prompt or "")[:40] + "..." if req.prompt and len(req.prompt) > 40 else req.prompt or "N/A",
+        req.style or "N/A", req.mood or "N/A",
+        str(req.bpm) if req.bpm else "N/A",
+        len(req.lyrics) if req.lyrics else 0,
+        req.vocal_style or "N/A",
+        req.music_name or "N/A",
+    )
+
+    if req.mode not in ("instrumental", "song", "cover"):
+        logger.warning("[auto_complete] 无效模式 | user_id=%d | mode=%s", current_user.id, req.mode)
+        return ApiResponse.fail("无效的创作模式")
+
+    try:
+        result = await auto_complete_form(
+            mode=req.mode,
+            prompt=req.prompt,
+            style=req.style,
+            mood=req.mood,
+            bpm=req.bpm,
+            lyrics=req.lyrics,
+            vocal_style=req.vocal_style,
+            music_name=req.music_name,
+        )
+
+        logger.info(
+            "[auto_complete] 补齐成功 | user_id=%d | mode=%s | returned_keys=%s",
+            current_user.id, req.mode, list(result.keys()),
+        )
+        return ApiResponse.ok(result)
+    except ValueError as e:
+        logger.error("[auto_complete] 补齐失败 | user_id=%d | error=%s", current_user.id, str(e))
+        return ApiResponse.fail(str(e))
+    except Exception as e:
+        logger.error("[auto_complete] 未知错误 | user_id=%d | error=%s", current_user.id, str(e))
+        return ApiResponse.fail("AI补齐失败，请稍后重试")
