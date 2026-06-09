@@ -174,7 +174,7 @@ export default function ModelsPage() {
     setLoading(true)
     try {
       const res = await apiClient.get('/admin/models')
-      setModels(res.data as AIModel[])
+      setModels((res.data as { data: AIModel[] }).data)
     } catch {
       toast('error', '加载模型列表失败')
     }

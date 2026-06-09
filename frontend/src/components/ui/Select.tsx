@@ -17,6 +17,7 @@ interface SelectProps {
   onChange: (value: string) => void
   error?: string
   placeholder?: string
+  className?: string
 }
 
 export default function Select({
@@ -26,6 +27,7 @@ export default function Select({
   onChange,
   error,
   placeholder = '请选择...',
+  className,
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -146,7 +148,7 @@ export default function Select({
   )
 
   return (
-    <div className="w-full" ref={containerRef}>
+    <div className={cn('w-full', className)} ref={containerRef}>
       {label && (
         <label className="block mb-1.5 text-sm font-medium text-text-secondary">
           {label}

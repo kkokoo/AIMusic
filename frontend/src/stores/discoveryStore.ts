@@ -58,9 +58,10 @@ export const useDiscoveryStore = create<DiscoveryState>((set) => ({
       const res = await apiClient.get('/discovery/leaderboard', {
         params: { page, pageSize: 20 },
       })
+      const resData = (res.data as { data: { items: DiscoveryItem[]; total: number } }).data
       set({
-        leaderboard: res.data?.items || [],
-        leaderboardTotal: res.data?.total || 0,
+        leaderboard: resData?.items || [],
+        leaderboardTotal: resData?.total || 0,
         leaderboardPage: page,
       })
     } catch {
@@ -76,7 +77,7 @@ export const useDiscoveryStore = create<DiscoveryState>((set) => ({
       const res = await apiClient.get('/discovery/recommendations', {
         params: { limit: 20 },
       })
-      set({ recommendations: res.data?.items || [] })
+      set({ recommendations: (res.data as { data: { items: DiscoveryItem[] } }).data?.items || [] })
     } catch {
       set({ recommendations: [] })
     } finally {
@@ -90,9 +91,10 @@ export const useDiscoveryStore = create<DiscoveryState>((set) => ({
       const res = await apiClient.get('/discovery/search', {
         params: { q: query, page, pageSize: 20 },
       })
+      const resData = (res.data as { data: { items: DiscoveryItem[]; total: number } }).data
       set({
-        searchResults: res.data?.items || [],
-        searchTotal: res.data?.total || 0,
+        searchResults: resData?.items || [],
+        searchTotal: resData?.total || 0,
         searchPage: page,
       })
     } catch {

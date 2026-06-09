@@ -41,9 +41,10 @@ export default function UsersPage() {
     setLoading(true)
     try {
       const res = await apiClient.get('/admin/users')
-      setUsers(res.data as User[])
-    } catch {
-      toast('error', '加载用户列表失败')
+      setUsers((res.data as { data: User[] }).data)
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '加载用户列表失败')
     }
     setLoading(false)
   }
@@ -69,8 +70,9 @@ export default function UsersPage() {
       toast('success', '积分已调整')
       setShowCreditsModal(false)
       await loadUsers()
-    } catch {
-      toast('error', '调整积分失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '调整积分失败')
     }
     setAdjusting(false)
   }
@@ -80,8 +82,9 @@ export default function UsersPage() {
       await apiClient.put(`/admin/users/${user.id}/status`)
       toast('success', user.isActive ? '用户已禁用' : '用户已启用')
       await loadUsers()
-    } catch {
-      toast('error', '操作失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '操作失败')
     }
   }
 

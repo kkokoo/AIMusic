@@ -7,10 +7,8 @@ import {
   Sparkles,
   Music,
   Mic,
-  Clock,
   Coins,
   RotateCcw,
-  Wand2,
   Download,
   Layers,
   Play,
@@ -27,7 +25,6 @@ import { useTaskStore } from '@/stores/taskStore'
 import { useUIStore } from '@/stores/uiStore'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
-import Slider from '@/components/ui/Slider'
 import Badge from '@/components/ui/Badge'
 import { cn } from '@/utils/cn'
 import { formatDuration } from '@/utils/format'
@@ -47,15 +44,6 @@ type GenerateFormValues = {
   vocalStyle: string
   musicName: string
 }
-
-const SAMPLE_LYRICS = `窗外的麻雀 在电线杆上多嘴
-你说这一句 很有夏天的感觉
-手中的铅笔 在纸上来来回回
-我用几行字形容你是我的谁
-秋刀鱼的滋味 猫跟你都想了解
-初恋的香味就这样被我们寻回
-那温暖的阳光 像刚摘的鲜艳草莓
-你说你舍不得吃掉这一种感觉`
 
 const STYLE_OPTIONS = [
   { value: '流行', label: '流行' },
@@ -97,7 +85,7 @@ function ModeSwitch({
       <button
         onClick={() => onChange('instrumental')}
         className={cn(
-          'flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-medium transition-all duration-300',
+          'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-all duration-300',
           mode === 'instrumental'
             ? 'bg-gradient-to-r from-cyan-neon to-[#0090ff] text-space-900 shadow-[0_0_20px_var(--color-cyan-glow)]'
             : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
@@ -109,7 +97,7 @@ function ModeSwitch({
       <button
         onClick={() => onChange('song')}
         className={cn(
-          'flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-medium transition-all duration-300',
+          'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-all duration-300',
           mode === 'song'
             ? 'bg-gradient-to-r from-cyan-neon to-[#0090ff] text-space-900 shadow-[0_0_20px_var(--color-cyan-glow)]'
             : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
@@ -121,7 +109,7 @@ function ModeSwitch({
       <button
         onClick={() => onChange('cover')}
         className={cn(
-          'flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-sm font-medium transition-all duration-300',
+          'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium transition-all duration-300',
           mode === 'cover'
             ? 'bg-gradient-to-r from-purple-neon to-[#a855f7] text-white shadow-[0_0_20px_var(--color-purple-glow)]'
             : 'text-text-muted hover:text-text-secondary hover:bg-white/5'
@@ -131,73 +119,6 @@ function ModeSwitch({
         翻唱
       </button>
     </div>
-  )
-}
-
-function ModelCard({
-  model,
-  isSelected,
-  onClick,
-}: {
-  model: AIModel
-  isSelected: boolean
-  onClick: () => void
-}) {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={cn(
-        'flex-shrink-0 w-40 md:w-44 p-3 md:p-4 rounded-2xl border transition-all duration-300 text-left',
-        'bg-space-800/80 backdrop-blur-sm',
-        isSelected
-          ? 'border-cyan-neon shadow-[0_0_16px_var(--color-cyan-glow)]'
-          : 'border-space-600/40 opacity-70 hover:opacity-100 hover:border-space-500'
-      )}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <div
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center',
-            isSelected
-              ? 'bg-gradient-to-br from-cyan-neon to-[#0090ff] text-space-900'
-              : 'bg-space-700 text-text-muted'
-          )}
-        >
-          <Music className="w-4 h-4" />
-        </div>
-        <span
-          className="text-sm font-semibold text-white truncate"
-          style={{ fontFamily: 'var(--font-orbitron)' }}
-        >
-          {model.name}
-        </span>
-      </div>
-      <div className="flex items-center gap-1 mb-2">
-        <Coins className="w-3 h-3 text-cyan-neon" />
-        <span
-          className="text-xs font-bold text-cyan-neon"
-          style={{ fontFamily: 'var(--font-orbitron)' }}
-        >
-          {model.pricePerSong > 0 ? model.pricePerSong : model.pricePerSecond}
-        </span>
-        <span className="text-xs text-text-muted">
-          {model.pricePerSong > 0 ? '积分/首' : '积分/秒'}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-1 mb-2">
-        {model.tags.slice(0, 2).map((tag) => (
-          <Badge key={tag} variant={tag === 'Pro' ? 'purple' : 'cyan'}>
-            {tag}
-          </Badge>
-        ))}
-      </div>
-      <div className="flex items-center gap-1 text-xs text-text-muted">
-        <Clock className="w-3 h-3" />
-        {formatDuration(model.maxDurationSec)}
-      </div>
-    </motion.button>
   )
 }
 
@@ -216,35 +137,46 @@ function ModelSelector({
     fetchModels(mode)
   }, [mode, fetchModels])
 
+  const options = useMemo(() =>
+    models.map((m) => ({
+      value: String(m.id),
+      label: `${m.name} · ${m.pricePerSong > 0 ? `${m.pricePerSong}/首` : `${m.pricePerSecond}/秒`}`,
+    })),
+    [models]
+  )
+
+  const value = selectedModel ? String(selectedModel.id) : ''
+
+  const handleChange = useCallback(
+    (val: string) => {
+      const model = models.find((m) => String(m.id) === val)
+      if (model) onSelectModel(model)
+    },
+    [models, onSelectModel]
+  )
+
+  if (loading) {
+    return (
+      <div className="h-9 rounded-xl bg-space-600/30 animate-pulse" />
+    )
+  }
+
+  if (models.length === 0) {
+    return (
+      <div className="py-3 text-center text-text-muted text-xs">
+        暂无可用模型
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <h3 className="text-sm font-medium text-text-secondary mb-3">选择模型</h3>
-      {loading ? (
-        <div className="flex gap-3 overflow-hidden">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 w-44 h-32 rounded-2xl bg-space-700/50 animate-pulse"
-            />
-          ))}
-        </div>
-      ) : models.length === 0 ? (
-        <div className="py-8 text-center text-text-muted text-sm">
-          暂无可用模型
-        </div>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none -mx-1 px-1">
-          {models.map((model) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              isSelected={selectedModel?.id === model.id}
-              onClick={() => onSelectModel(model)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <Select
+      options={options}
+      value={value}
+      onChange={handleChange}
+      placeholder="选择生成模型"
+      className="text-xs"
+    />
   )
 }
 
@@ -271,39 +203,38 @@ function CreditPreview({
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center justify-between p-4 rounded-xl bg-space-700/50 border border-space-600/30"
+      className="flex items-center gap-1.5 text-xs"
     >
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <p className="text-xs text-text-muted">
-            {isPerSong ? '每首将消耗' : '预估至多消耗'}
-          </p>
-          {isPerSong && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-neon/20 text-purple-neon border border-purple-neon/30">
-              按首
-            </span>
-          )}
-        </div>
-        <p
-          className={cn(
-            'text-2xl font-bold',
-            hasEnoughCredits ? 'text-green-neon' : 'text-red-neon'
-          )}
-          style={{ fontFamily: 'var(--font-orbitron)' }}
-        >
-          {costCredits}
-          <span className="text-sm ml-1 font-normal">积分</span>
-        </p>
-      </div>
-      <div className="text-right">
-        <p className="text-xs text-text-muted mb-1">当前余额</p>
-        <p
-          className="text-lg font-bold text-cyan-neon"
-          style={{ fontFamily: 'var(--font-orbitron)' }}
-        >
-          {user?.credits ?? 0}
-        </p>
-      </div>
+      <span className="text-text-muted">
+        {isPerSong ? '每首消耗' : '预估至多消耗'}
+      </span>
+      <span
+        className={cn(
+          'font-bold',
+          hasEnoughCredits ? 'text-green-neon' : 'text-red-neon'
+        )}
+        style={{ fontFamily: 'var(--font-orbitron)' }}
+      >
+        {costCredits}
+      </span>
+      <span className="text-text-muted">积分</span>
+      {isPerSong && (
+        <span className="text-[10px] px-1 py-0.5 rounded bg-purple-neon/20 text-purple-neon border border-purple-neon/30">
+          按首
+        </span>
+      )}
+      <span className="text-text-muted mx-1">·</span>
+      <span className="text-text-muted">余额</span>
+      <span
+        className={cn(
+          'font-bold',
+          hasEnoughCredits ? 'text-green-neon' : 'text-red-neon'
+        )}
+        style={{ fontFamily: 'var(--font-orbitron)' }}
+      >
+        {user?.credits ?? 0}
+      </span>
+      <span className="text-text-muted">积分</span>
     </motion.div>
   )
 }
@@ -332,7 +263,7 @@ function InstrumentalForm({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="space-y-4"
+      className="space-y-3"
     >
       <div>
         <label className="block mb-1.5 text-sm font-medium text-text-secondary">
@@ -341,40 +272,38 @@ function InstrumentalForm({
         <textarea
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
-          placeholder="描述你想要的音乐，例如：一首轻快的钢琴曲，80BPM，C大调..."
-          className="w-full min-h-32 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
+          placeholder="描述你想要的音乐，例如：一首轻快的钢琴曲，C大调..."
+          className="w-full min-h-36 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
         />
       </div>
 
-      <Select
-        label="风格"
-        options={STYLE_OPTIONS}
-        value={style}
-        onChange={onStyleChange}
-        placeholder="选择音乐风格"
-      />
-
-      <Slider
-        label="BPM"
-        min={60}
-        max={180}
-        step={5}
-        value={bpm}
-        onChange={onBpmChange}
-        showValue
-      />
-
-      <Select
-        label="情绪"
-        options={MOOD_OPTIONS}
-        value={mood}
-        onChange={onMoodChange}
-        placeholder="选择音乐情绪"
-      />
-
-      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-cyan-neon/5 border border-cyan-neon/20">
-        <span className="text-sm text-text-secondary">时长</span>
-        <span className="text-sm text-cyan-neon">由AI自动决定</span>
+      <div className="grid grid-cols-3 gap-2">
+        <Select
+          options={STYLE_OPTIONS}
+          value={style}
+          onChange={onStyleChange}
+          placeholder="选择风格"
+        />
+        <Select
+          options={MOOD_OPTIONS}
+          value={mood}
+          onChange={onMoodChange}
+          placeholder="选择情绪"
+        />
+        <div>
+          <label className="block mb-1.5 text-sm font-medium text-text-secondary">
+            BPM
+          </label>
+          <input
+            type="number"
+            min={60}
+            max={180}
+            step={5}
+            value={bpm}
+            onChange={(e) => onBpmChange(Number(e.target.value))}
+            className="w-full rounded-xl bg-space-800 border border-space-600 px-4 py-2.5 text-sm text-white transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] text-center"
+          />
+        </div>
       </div>
     </motion.div>
   )
@@ -395,148 +324,34 @@ function SongForm({
   vocalStyle: string
   onVocalStyleChange: (v: string) => void
 }) {
-  const [lyricsPrompt, setLyricsPrompt] = useState('')
-  const [lyricsStyle, setLyricsStyle] = useState('')
-  const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false)
-  const [lyricsExpanded, setLyricsExpanded] = useState(false)
-
-  const handleGenerateLyrics = async () => {
-    if (!lyricsPrompt.trim()) return
-    setIsGeneratingLyrics(true)
-    try {
-      const res = await apiClient.post('/generation/lyrics', {
-        prompt: lyricsPrompt,
-        style: lyricsStyle || undefined,
-        language: 'zh',
-        verse_count: 2,
-        include_bridge: true,
-      })
-      onLyricsChange(res.data.lyrics)
-      setLyricsExpanded(false)
-      if (res.data.balanceAfter != null) {
-        const { user } = useAuthStore.getState()
-        if (user) {
-          useAuthStore.setState({ user: { ...user, credits: res.data.balanceAfter } })
-        }
-      }
-    } catch (err: unknown) {
-      const error = err as { message?: string; error?: string }
-      if (error?.message || error?.error) {
-        // toast will be handled by the store
-      }
-    } finally {
-      setIsGeneratingLyrics(false)
-    }
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="space-y-4"
+      className="space-y-3"
     >
-      <div>
-        <label className="block mb-1.5 text-sm font-medium text-text-secondary">
-          歌曲描述
-        </label>
-        <textarea
-          value={prompt}
-          onChange={(e) => onPromptChange(e.target.value)}
-          placeholder="描述你想要的歌曲氛围，例如：一首欢快的情歌，适合夏日海滩..."
-          className="w-full min-h-20 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
-        />
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-sm font-medium text-text-secondary">
-            歌词
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="block mb-1.5 text-sm font-medium text-text-secondary">
+            歌曲描述
           </label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setLyricsExpanded(!lyricsExpanded)}
-              className={cn(
-                'flex items-center gap-1 text-xs transition-colors',
-                lyricsExpanded
-                  ? 'text-purple-neon'
-                  : 'text-purple-neon/70 hover:text-purple-neon'
-              )}
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              AI 生成歌词
-              <span className="text-[10px] text-purple-neon/50 ml-0.5">5积分</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onLyricsChange(SAMPLE_LYRICS)}
-              className="text-xs text-cyan-neon hover:text-cyan-neon/80 transition-colors"
-            >
-              填入示例歌词
-            </button>
-          </div>
+          <textarea
+            value={prompt}
+            onChange={(e) => onPromptChange(e.target.value)}
+            placeholder="描述你想要的歌曲氛围，例如：一首欢快的情歌，适合夏日海滩..."
+            className="w-full min-h-40 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
+          />
         </div>
 
-        <AnimatePresence>
-          {lyricsExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mb-3"
-            >
-              <div className="p-3 rounded-xl bg-purple-neon/5 border border-purple-neon/20 space-y-3">
-                <div>
-                  <label className="block mb-1 text-xs text-text-muted">
-                    歌词主题
-                  </label>
-                  <input
-                    type="text"
-                    value={lyricsPrompt}
-                    onChange={(e) => setLyricsPrompt(e.target.value)}
-                    placeholder="例如：夏日海滩、失恋的夜晚..."
-                    className="w-full rounded-lg bg-space-800 border border-space-600 px-3 py-2 text-sm text-white placeholder:text-text-muted focus:outline-none focus:border-purple-neon transition-colors"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleGenerateLyrics()
-                    }}
-                  />
-                </div>
-                <Select
-                  label="风格"
-                  options={STYLE_OPTIONS}
-                  value={lyricsStyle}
-                  onChange={setLyricsStyle}
-                  placeholder="选择风格（可选）"
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full bg-gradient-to-r from-purple-neon to-[#7c3aed] hover:shadow-[0_0_16px_var(--color-purple-glow)]"
-                  onClick={handleGenerateLyrics}
-                  disabled={isGeneratingLyrics || !lyricsPrompt.trim()}
-                >
-                  {isGeneratingLyrics ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      生成中...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" />
-                      生成歌词 （5 积分）
-                    </>
-                  )}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <textarea
-          value={lyrics}
-          onChange={(e) => onLyricsChange(e.target.value)}
-          placeholder={`[Intro]
+        <div>
+          <label className="block mb-1.5 text-sm font-medium text-text-secondary">
+            歌词
+          </label>
+          <textarea
+            value={lyrics}
+            onChange={(e) => onLyricsChange(e.target.value)}
+            placeholder={`[Intro]
 （前奏）
 
 [Verse 1]
@@ -556,25 +371,18 @@ function SongForm({
 
 [Outro]
 尾奏渐弱...`}
-          className="w-full min-h-48 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
-          style={{ fontFamily: 'var(--font-mono-code)' }}
-        />
+            className="w-full min-h-40 rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)] resize-none"
+            style={{ fontFamily: 'var(--font-mono-code)' }}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        <Select
-          label="声音风格"
-          options={VOCAL_STYLE_OPTIONS}
-          value={vocalStyle}
-          onChange={onVocalStyleChange}
-          placeholder="选择风格"
-        />
-      </div>
-
-      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-cyan-neon/5 border border-cyan-neon/20">
-        <span className="text-sm text-text-secondary">时长</span>
-        <span className="text-sm text-cyan-neon">由AI自动决定</span>
-      </div>
+      <Select
+        options={VOCAL_STYLE_OPTIONS}
+        value={vocalStyle}
+        onChange={onVocalStyleChange}
+        placeholder="选择声音风格"
+      />
     </motion.div>
   )
 }
@@ -616,7 +424,7 @@ function CoverForm({
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4"
+      className="space-y-3"
     >
       <div className="space-y-2">
         <label className="text-sm text-text-secondary">参考音频 *</label>
@@ -662,7 +470,8 @@ function CoverForm({
         )}
       </div>
 
-      <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
           <label className="block mb-1.5 text-sm font-medium text-text-secondary">
             翻唱风格
           </label>
@@ -678,17 +487,18 @@ function CoverForm({
 
         <div>
           <label className="block mb-1.5 text-sm font-medium text-text-secondary">
-            新歌词 (可选，留空则保留原歌词)
+            新歌词 (可选)
           </label>
           <textarea
             value={lyrics}
             onChange={(e) => onLyricsChange(e.target.value)}
             placeholder="输入新歌词，留空则自动提取原歌词..."
-            rows={3}
+            rows={2}
             maxLength={1000}
             className="w-full rounded-xl bg-space-800 border border-space-600 px-4 py-3 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-purple-neon focus:shadow-[0_0_12px_var(--color-purple-glow)] resize-none"
           />
         </div>
+      </div>
 
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-neon/5 border border-purple-neon/20">
         <Layers className="w-4 h-4 text-purple-neon shrink-0" />
@@ -1060,7 +870,7 @@ export default function CreatePage() {
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
   const [mood, setMood] = useState('')
-  const [bpm, setBpm] = useState(120)
+  const [bpm, setBpm] = useState(80)
   const [lyrics, setLyrics] = useState('')
   const [vocalStyle, setVocalStyle] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -1173,20 +983,20 @@ export default function CreatePage() {
         customName: buildFallbackMusicName(mode, values),
         ...(mode === 'instrumental'
           ? {
-              prompt: values.prompt || undefined,
-              style: values.style || undefined,
-            }
+            prompt: values.prompt || undefined,
+            style: values.style || undefined,
+          }
           : mode === 'cover'
             ? {
-                prompt: values.prompt || undefined,
-                lyrics: values.lyrics || undefined,
-                audioBase64,
-              }
+              prompt: values.prompt || undefined,
+              lyrics: values.lyrics || undefined,
+              audioBase64,
+            }
             : {
-                lyrics: values.lyrics || undefined,
-                vocalStyle: values.vocalStyle || undefined,
-                prompt: values.prompt || undefined,
-              }),
+              lyrics: values.lyrics || undefined,
+              vocalStyle: values.vocalStyle || undefined,
+              prompt: values.prompt || undefined,
+            }),
       }
 
       const task = await submitTask(params)
@@ -1228,7 +1038,7 @@ export default function CreatePage() {
         musicName: musicName.trim() || undefined,
       })
 
-      const data = res.data
+      const data = (res.data as { data: { prompt?: string; style?: string; mood?: string; bpm?: number; lyrics?: string; vocalStyle?: string; musicName?: string } }).data
 
       const completedValues = getCurrentValues({
         prompt: prompt.trim() ? prompt : data.prompt || '',
@@ -1269,19 +1079,18 @@ export default function CreatePage() {
 
   return (
     <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden">
-      <aside className="flex-1 lg:flex-none glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-105 min-h-0 md:ml-5">
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-5 scrollbar-thin">
+      <aside className="flex-1 lg:flex-none glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-120 min-h-0 md:ml-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <h1
-              className="text-lg md:text-xl font-bold text-cyan-neon glow-text-cyan mb-1 text-center"
+              className="text-base md:text-lg font-bold text-cyan-neon glow-text-cyan mb-0 text-center"
               style={{ fontFamily: 'var(--font-orbitron)' }}
             >
               AI MUSIC STUDIO
             </h1>
-            <p className="text-xs text-text-muted">选择模型和参数，开始AI音乐创作</p>
           </motion.div>
 
           <ModeSwitch mode={mode} onChange={handleModeChange} />
@@ -1301,16 +1110,16 @@ export default function CreatePage() {
           )}
 
           <div>
-            <label className="block mb-1.5 text-sm font-medium text-text-secondary">
+            <label className="block mb-1 text-xs font-medium text-text-secondary">
               音乐名称
             </label>
             <input
               type="text"
               value={musicName}
               onChange={(e) => setMusicName(e.target.value)}
-              placeholder={mode === 'instrumental' ? '例如：静谧的夜晚、星空漫步...' : mode === 'cover' ? '例如：翻唱-某某歌曲...' : '例如：夏日恋歌、青春序曲...'}
+              placeholder={mode === 'instrumental' ? '例如：静谧的夜晚' : mode === 'cover' ? '例如：翻唱-某某歌曲' : '例如：夏日恋歌'}
               maxLength={200}
-              className="w-full rounded-xl bg-space-800 border border-space-600 px-4 py-2.5 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)]"
+              className="w-full rounded-lg bg-space-800 border border-space-600 px-3 py-1.5 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)]"
             />
           </div>
 
@@ -1351,16 +1160,14 @@ export default function CreatePage() {
               />
             )}
           </AnimatePresence>
-
-          <div className="h-4" />
         </div>
 
-        <div className="p-4 md:p-5 border-t border-space-600/50 bg-space-800/95 backdrop-blur-sm shrink-0">
+        <div className="p-3 md:p-4 border-t border-space-600/50 bg-space-800/95 backdrop-blur-sm shrink-0 sticky bottom-0">
           {selectedModel && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-3"
+              className="mb-2"
             >
               <button
                 onClick={handleAIAutoComplete}
@@ -1387,16 +1194,13 @@ export default function CreatePage() {
                   </>
                 )}
               </button>
-              <p className="text-center text-[11px] text-text-muted mt-1.5 leading-relaxed">
-                AI将根据已填写内容自动补全剩余信息并直接生成音乐
-              </p>
             </motion.div>
           )}
 
           {!hasEnoughCredits && selectedModel ? (
             <Button
               variant="danger"
-              size="lg"
+              size="md"
               className="w-full"
               onClick={() => router.push('/recharge')}
             >
@@ -1406,7 +1210,7 @@ export default function CreatePage() {
           ) : (
             <Button
               variant="primary"
-              size="lg"
+              size="md"
               className="w-full"
               loading={generating}
               disabled={!canGenerate}

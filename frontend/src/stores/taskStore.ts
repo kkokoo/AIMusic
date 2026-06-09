@@ -36,7 +36,7 @@ export const useTaskStore = create<TaskState>()((set) => ({
         audio_base64: params.audioBase64,
         custom_name: params.customName,
       })
-      const task = res.data
+      const task = (res.data as { data: GenerationTask }).data
       set({ currentTask: task, isGenerating: false })
       return task
     } catch (error: unknown) {
@@ -56,7 +56,7 @@ export const useTaskStore = create<TaskState>()((set) => ({
 
       try {
         const res = await apiClient.get(`/generation/task/${taskId}`)
-        const task = res.data
+        const task = (res.data as { data: GenerationTask }).data
         set({ currentTask: task })
 
         if (task.status === 'completed' || task.status === 'failed') {
@@ -81,7 +81,7 @@ export const useTaskStore = create<TaskState>()((set) => ({
     void _userId
     try {
       const res = await apiClient.get('/generation/history', { params: { page, page_size: 12 } })
-      const data = res.data
+      const data = (res.data as { data: { items: GenerationTask[]; total: number; totalPages: number } }).data
       if (page === 1) {
         set({ tasks: data.items })
       } else {

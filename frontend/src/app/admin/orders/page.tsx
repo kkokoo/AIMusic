@@ -48,9 +48,10 @@ export default function OrdersPage() {
     setLoading(true)
     try {
       const res = await apiClient.get('/admin/orders')
-      setOrders(res.data as CreditOrder[])
-    } catch {
-      toast('error', '加载订单列表失败')
+      setOrders((res.data as { data: CreditOrder[] }).data)
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '加载订单列表失败')
     }
     setLoading(false)
   }
@@ -61,8 +62,9 @@ export default function OrdersPage() {
       await apiClient.post(`/admin/orders/${orderId}/complete`)
       toast('success', '订单已完成')
       await loadOrders()
-    } catch {
-      toast('error', '操作失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '操作失败')
     }
     setCompleting(null)
   }

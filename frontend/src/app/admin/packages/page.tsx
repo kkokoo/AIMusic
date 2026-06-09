@@ -47,9 +47,10 @@ export default function PackagesPage() {
     setLoading(true)
     try {
       const res = await apiClient.get('/admin/packages')
-      setPackages(res.data as CreditPackage[])
-    } catch {
-      toast('error', '加载套餐列表失败')
+      setPackages((res.data as { data: CreditPackage[] }).data)
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '加载套餐列表失败')
     }
     setLoading(false)
   }
@@ -88,8 +89,9 @@ export default function PackagesPage() {
       }
       setShowModal(false)
       await loadPackages()
-    } catch {
-      toast('error', '保存失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '保存失败')
     }
     setSaving(false)
   }
@@ -100,8 +102,9 @@ export default function PackagesPage() {
       await apiClient.delete(`/admin/packages/${id}`)
       toast('success', '套餐已删除')
       await loadPackages()
-    } catch {
-      toast('error', '删除失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '删除失败')
     }
   }
 
@@ -110,8 +113,9 @@ export default function PackagesPage() {
       await apiClient.put(`/admin/packages/${pkg.id}`, { isActive: !pkg.isActive })
       toast('success', pkg.isActive ? '套餐已下架' : '套餐已上架')
       await loadPackages()
-    } catch {
-      toast('error', '操作失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '操作失败')
     }
   }
 

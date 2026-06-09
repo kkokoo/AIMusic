@@ -40,15 +40,16 @@ export default function SettingsPage() {
     setLoading(true)
     try {
       const res = await apiClient.get('/admin/config')
-      const raw = res.data as Record<string, unknown>
+      const raw = (res.data as { data: Record<string, unknown> }).data
       setConfig({
         initialCredits: (raw.initialCredits as number) ?? 0,
         maxConcurrent: (raw.maxConcurrent as number) ?? 3,
         autoRefund: raw.autoRefund === true || raw.autoRefund === 'true',
         creditPricePerUnit: (raw.creditPricePerUnit as number) ?? 0.06,
       })
-    } catch {
-      toast('error', '加载系统配置失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '加载系统配置失败')
     }
     setLoading(false)
   }
@@ -60,8 +61,9 @@ export default function SettingsPage() {
       await apiClient.put('/admin/config', config)
       toast('success', '系统配置已更新')
       await loadConfig()
-    } catch {
-      toast('error', '保存失败')
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      toast('error', e?.error || e?.message || '保存失败')
     }
     setSaving(false)
   }

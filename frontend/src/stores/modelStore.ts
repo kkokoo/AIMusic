@@ -21,7 +21,7 @@ export const useModelStore = create<ModelState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.get('/models', { params: mode ? { mode } : {} })
-      const models = res.data as AIModel[]
+      const models = (res.data as { data: AIModel[] }).data
       set((state) => ({
         models,
         selectedModel: models.length === 0

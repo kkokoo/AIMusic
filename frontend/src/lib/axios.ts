@@ -54,6 +54,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
+    // 如果是从 success 拦截器中 reject 的后端响应（success=false），直接透传
+    if (error && typeof error === 'object' && (error as Record<string, unknown>).success === false) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth-token');

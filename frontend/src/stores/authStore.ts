@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           const res = await apiClient.post('/auth/login', { email: params.email, password: params.password })
-          const payload = res.data as { token: string; user: User }
+          const payload = (res.data as { data: { token: string; user: User } }).data
           localStorage.setItem('auth-token', payload.token)
           set({ user: payload.user, token: payload.token, isAuthenticated: true, isLoading: false })
         } catch (error: unknown) {
@@ -48,7 +48,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           const res = await apiClient.post('/auth/register', { username: params.username, email: params.email, password: params.password })
-          const payload = res.data as { token: string; user: User }
+          const payload = (res.data as { data: { token: string; user: User } }).data
           localStorage.setItem('auth-token', payload.token)
           set({ user: payload.user, token: payload.token, isAuthenticated: true, isLoading: false })
         } catch (error: unknown) {
@@ -69,7 +69,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           const res = await apiClient.get('/user/profile')
-          set({ user: res.data as User, isLoading: false })
+          set({ user: (res.data as { data: User }).data, isLoading: false })
         } catch (error: unknown) {
           const err = error as { message?: string; error?: string; status?: number }
           if (err?.status === 401) {
@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           const res = await apiClient.put('/user/profile', { username: data.username })
-          set({ user: res.data as User, isLoading: false })
+          set({ user: (res.data as { data: User }).data, isLoading: false })
         } catch (error: unknown) {
           const err = error as { message?: string; error?: string }
           set({ isLoading: false })

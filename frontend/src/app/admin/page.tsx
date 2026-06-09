@@ -17,6 +17,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Skeleton from '@/components/ui/Skeleton'
 import apiClient from '@/lib/axios'
+import { useUIStore } from '@/stores/uiStore'
 import { formatDate, taskStatusLabels } from '@/utils/format'
 import type { GenerationTask } from '@/types'
 
@@ -84,6 +85,7 @@ const statusBadgeVariant: Record<string, 'cyan' | 'purple' | 'green' | 'red' | '
 }
 
 export default function DashboardPage() {
+  const toast = useUIStore((s) => s.toast)
   const [stats, setStats] = useState<{
     todayGenerations: number
     todayRevenue: number
@@ -93,38 +95,51 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<GenerationTask[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) {
       setLoading(true)
     }
+    setError(null)
     try {
       const [dashboardRes, tasksRes] = await Promise.all([
         apiClient.get('/admin/dashboard'),
-        apiClient.get('/admin/tasks', { params: { page: 1, page_size: 10 } }),
+        apiClient.get('/admin/tasks', { params: { page: 1, page_size: 5 } }),
       ])
       const dashboardData = dashboardRes.data as {
-        todayGenerations: number
-        todayRevenue: number
-        activeUsers: number
-        modelUsage: { modelName: string; count: number }[]
+        success: boolean
+        data: {
+          todayGenerations: number
+          todayRevenue: number
+          activeUsers: number
+          modelUsage: { modelName: string; count: number }[]
+        }
       }
+      const d = dashboardData.data || dashboardData
       setStats({
-        todayGenerations: dashboardData.todayGenerations ?? 0,
-        todayRevenue: dashboardData.todayRevenue ?? 0,
-        activeUsers: dashboardData.activeUsers ?? 0,
-        modelUsage: (dashboardData.modelUsage || []).map((m) => ({
+        todayGenerations: d.todayGenerations ?? 0,
+        todayRevenue: d.todayRevenue ?? 0,
+        activeUsers: d.activeUsers ?? 0,
+        modelUsage: (d.modelUsage || []).map((m) => ({
           name: m.modelName,
           count: m.count,
         })),
       })
-      setTasks((tasksRes.data as { items: GenerationTask[] }).items || [])
-    } catch {
-      // API unavailable, show empty state
+      const tasksData = tasksRes.data as { data?: { items: GenerationTask[] }; items?: GenerationTask[] }
+      const taskItems = tasksData.data?.items || tasksData.items || []
+      setTasks(taskItems)
+    } catch (err: unknown) {
+      const e = err as { error?: string; message?: string }
+      const msg = e?.error || e?.message || '加载仪表盘数据失败'
+      if (!silent) {
+        setError(msg)
+      }
+      toast('error', msg)
     }
     setLoading(false)
     setRefreshing(false)
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     loadData()

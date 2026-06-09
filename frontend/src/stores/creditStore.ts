@@ -29,7 +29,7 @@ export const useCreditStore = create<CreditState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.get('/credits/balance')
-      set({ balance: res.data.balance, loading: false })
+      set({ balance: (res.data as { data: { balance: number } }).data.balance, loading: false })
     } catch (error: unknown) {
       const err = error as { message?: string; error?: string }
       set({ loading: false })
@@ -42,7 +42,7 @@ export const useCreditStore = create<CreditState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.get('/credits/transactions')
-      set({ transactions: res.data.items, loading: false })
+      set({ transactions: (res.data as { data: { items: CreditTransaction[] } }).data.items, loading: false })
     } catch (error: unknown) {
       const err = error as { message?: string; error?: string }
       set({ loading: false })
@@ -54,7 +54,7 @@ export const useCreditStore = create<CreditState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.get('/credits/packages')
-      set({ packages: res.data, loading: false })
+      set({ packages: (res.data as { data: CreditPackage[] }).data, loading: false })
     } catch (error: unknown) {
       const err = error as { message?: string; error?: string }
       set({ loading: false })
@@ -67,7 +67,7 @@ export const useCreditStore = create<CreditState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.post('/orders/create', { package_id: params.packageId, payment_method: params.paymentMethod })
-      const order = res.data
+      const order = (res.data as { data: CreditOrder }).data
       set((state) => ({
         orders: [order, ...state.orders],
         loading: false,
@@ -86,7 +86,7 @@ export const useCreditStore = create<CreditState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.post(`/orders/${orderId}/pay`)
-      const order = res.data
+      const order = (res.data as { data: CreditOrder }).data
       set((state) => ({
         orders: state.orders.map((o) => (o.id === orderId ? order : o)),
         loading: false,
