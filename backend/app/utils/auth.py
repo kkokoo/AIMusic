@@ -18,10 +18,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
-def create_token(user_id: int, is_admin: bool = False) -> str:
+def create_token(user_id: int, is_admin: bool = False, session_version: int = 0) -> str:
     payload = {
         "user_id": user_id,
         "is_admin": is_admin,
+        "session_version": session_version,
         "exp": datetime.now(timezone.utc) + timedelta(days=settings.jwt_expire_days),
         "iat": datetime.now(timezone.utc),
     }
@@ -51,6 +52,11 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
+
+    token_session_version = payload.get("session_version")
+    current_session_version = getattr(user, "session_version", 0) or 0
+    if token_session_version != current_session_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号已在其他设备登录")
 
     return user
 

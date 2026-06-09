@@ -13,12 +13,13 @@ import {
   Trash2,
   Play,
   Pause,
-  X,
   AlertTriangle,
   Sparkles,
   Pencil,
   Check,
   Layers,
+  Download,
+  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useTaskStore } from '@/stores/taskStore'
@@ -32,12 +33,12 @@ import { cn } from '@/utils/cn'
 import { formatDuration, formatRelativeTime, formatCredits } from '@/utils/format'
 import type { GenerationTask } from '@/types'
 
-function WaveformVisualization({ mode }: { mode: 'instrumental' | 'song' | 'cover' }) {
-  const bars = Array.from({ length: 16 }, () => Math.random() * 0.7 + 0.3)
+const WAVEFORM_BARS = [0.42, 0.68, 0.35, 0.82, 0.54, 0.76, 0.48, 0.9, 0.57, 0.72, 0.38, 0.84, 0.51, 0.7, 0.45, 0.8]
 
+function WaveformVisualization({ mode }: { mode: 'instrumental' | 'song' | 'cover' }) {
   return (
     <div className="flex items-end justify-center gap-[2px] h-12 w-full">
-      {bars.map((h, i) => (
+      {WAVEFORM_BARS.map((h, i) => (
         <motion.div
           key={i}
           className={cn(
@@ -57,7 +58,7 @@ function WaveformVisualization({ mode }: { mode: 'instrumental' | 'song' | 'cove
           initial={{ height: 4 }}
           animate={{ height: `${h * 48}px` }}
           transition={{
-            duration: 0.6 + Math.random() * 0.4,
+            duration: 0.6 + (i % 5) * 0.08,
             repeat: Infinity,
             repeatType: 'reverse',
             ease: 'easeInOut',
@@ -67,12 +68,6 @@ function WaveformVisualization({ mode }: { mode: 'instrumental' | 'song' | 'cove
       ))}
     </div>
   )
-}
-
-const MODE_LABELS: Record<string, string> = {
-  instrumental: '纯音乐',
-  song: '歌曲',
-  cover: '翻唱',
 }
 
 function getDisplayName(task: GenerationTask): string {
@@ -103,7 +98,7 @@ function WorkCard({
       resume()
     } else {
       useDiscoveryStore.getState().recordPlay(task.id)
-      play(task.audioUrl, displayName)
+      play(task.audioUrl, displayName, task.lyrics)
     }
   }
 
@@ -278,17 +273,30 @@ function WorkCard({
           className="absolute inset-0 rounded-2xl bg-cyan-neon/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none"
           onClick={handlePlay}
         >
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            className="w-12 h-12 rounded-full bg-cyan-neon/20 border border-cyan-neon/40 flex items-center justify-center pointer-events-auto"
-            onClick={(e) => { e.stopPropagation(); handlePlay(e) }}
-          >
-            {isCurrentPlaying ? (
-              <Pause className="w-5 h-5 text-cyan-neon" />
-            ) : (
-              <Play className="w-5 h-5 text-cyan-neon ml-0.5" />
-            )}
-          </motion.div>
+          <div className="flex items-center gap-3 pointer-events-auto">
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              className="w-12 h-12 rounded-full bg-cyan-neon/20 border border-cyan-neon/40 flex items-center justify-center"
+              onClick={(e) => { e.stopPropagation(); handlePlay(e) }}
+            >
+              {isCurrentPlaying ? (
+                <Pause className="w-5 h-5 text-cyan-neon" />
+              ) : (
+                <Play className="w-5 h-5 text-cyan-neon ml-0.5" />
+              )}
+            </motion.div>
+            <a
+              href={task.audioUrl}
+              download
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="w-12 h-12 rounded-full bg-space-800/90 border border-space-600 flex items-center justify-center text-text-muted hover:text-cyan-neon hover:bg-cyan-neon/10 transition-colors"
+              title="下载音乐"
+            >
+              <Download className="w-5 h-5" />
+            </a>
+          </div>
         </div>
       )}
     </motion.div>
@@ -309,6 +317,7 @@ function DetailModal({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState('')
+  const [showLyrics, setShowLyrics] = useState(false)
   const { play, pause, resume, currentUrl, isPlaying, stop } = useAudioStore()
   const { renameTask } = useTaskStore()
 
@@ -324,7 +333,7 @@ function DetailModal({
       resume()
     } else {
       useDiscoveryStore.getState().recordPlay(task.id)
-      play(task.audioUrl, displayName)
+      play(task.audioUrl, displayName, task.lyrics)
     }
   }
 
@@ -425,6 +434,26 @@ function DetailModal({
                 </>
               )}
             </Button>
+            <a
+              href={task.audioUrl}
+              download
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium bg-space-700 text-text-secondary hover:text-cyan-neon hover:bg-cyan-neon/10 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              下载
+            </a>
+            {task.lyrics && task.lyrics.trim() && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setShowLyrics(!showLyrics)}
+              >
+                <FileText className="w-4 h-4" />
+                歌词
+              </Button>
+            )}
           </div>
         )}
 
@@ -456,7 +485,7 @@ function DetailModal({
           </div>
         </div>
 
-        {task.lyrics && (
+        {showLyrics && task.lyrics && (
           <div className="p-3 rounded-xl bg-space-700/50">
             <p className="text-xs text-text-muted mb-2">歌词</p>
             <div className="max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-space-600 scrollbar-track-transparent pr-1">
@@ -487,7 +516,7 @@ function DetailModal({
 
 export default function WorksPage() {
   const router = useRouter()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, hasHydrated } = useAuthStore()
   const { tasks, fetchHistory, deleteTask } = useTaskStore()
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -496,10 +525,10 @@ export default function WorksPage() {
   const [detailOpen, setDetailOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/login')
     }
-  }, [isAuthenticated, router])
+  }, [hasHydrated, isAuthenticated, router])
 
   useEffect(() => {
     if (!user || !isAuthenticated) return
@@ -535,7 +564,7 @@ export default function WorksPage() {
     setDetailOpen(true)
   }, [])
 
-  if (!isAuthenticated || !user) {
+  if (!hasHydrated || !isAuthenticated || !user) {
     return null
   }
 

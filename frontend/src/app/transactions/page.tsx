@@ -123,15 +123,15 @@ function TransactionItem({ tx }: { tx: CreditTransaction }) {
 
 export default function TransactionsPage() {
   const router = useRouter()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, hasHydrated } = useAuthStore()
   const { transactions, fetchTransactions, loading } = useCreditStore()
   const [filter, setFilter] = useState<string>('all')
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/login')
     }
-  }, [isAuthenticated, router])
+  }, [hasHydrated, isAuthenticated, router])
 
   useEffect(() => {
     if (!user || !isAuthenticated) return
@@ -152,7 +152,7 @@ export default function TransactionsPage() {
     return { totalIn, totalOut }
   }, [filteredTransactions])
 
-  if (!isAuthenticated || !user) {
+  if (!hasHydrated || !isAuthenticated || !user) {
     return null
   }
 

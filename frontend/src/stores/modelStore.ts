@@ -9,7 +9,7 @@ interface ModelState {
   loading: boolean
 
   fetchModels: (mode?: string) => Promise<void>
-  selectModel: (model: AIModel) => void
+  selectModel: (model: AIModel | null) => void
 }
 
 export const useModelStore = create<ModelState>()((set) => ({
@@ -21,7 +21,16 @@ export const useModelStore = create<ModelState>()((set) => ({
     set({ loading: true })
     try {
       const res = await apiClient.get('/models', { params: mode ? { mode } : {} })
-      set({ models: res.data, loading: false })
+      const models = res.data as AIModel[]
+      set((state) => ({
+        models,
+        selectedModel: models.length === 0
+          ? null
+          : models.some((model) => model.id === state.selectedModel?.id)
+            ? state.selectedModel
+            : models[0],
+        loading: false,
+      }))
     } catch (error: unknown) {
       const err = error as { message?: string; error?: string }
       set({ loading: false })

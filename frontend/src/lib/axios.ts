@@ -47,21 +47,26 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    const result = snakeToCamel(response.data) as any
-    if (result && result.success === false) {
-      return Promise.reject(result)
+    response.data = snakeToCamel(response.data);
+    if (response.data && (response.data as Record<string, unknown>).success === false) {
+      return Promise.reject(response.data);
     }
-    return result
+    return response;
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth-token');
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth-token');
+        localStorage.removeItem('auth-storage');
         window.location.href = '/login';
       }
     }
     const data = error.response?.data;
-    return Promise.reject(data ? snakeToCamel(data) : { success: false, error: '网络错误' });
+    const normalized = data ? snakeToCamel(data) : { success: false, error: '网络错误' };
+    return Promise.reject({
+      ...(normalized as Record<string, unknown>),
+      status: error.response?.status,
+    });
   }
 );
 

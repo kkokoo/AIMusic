@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
@@ -35,7 +36,15 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    current_user.username = req.username
+    username = req.username.strip()
+    if not username:
+        return ApiResponse.fail("用户名不能为空")
+
+    existing = await db.scalar(select(User).where(User.username == username, User.id != current_user.id))
+    if existing:
+        return ApiResponse.fail("用户名已被占用")
+
+    current_user.username = username
     await db.commit()
     await db.refresh(current_user)
     return ApiResponse.ok(user_to_response(current_user))

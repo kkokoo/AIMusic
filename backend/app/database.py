@@ -50,3 +50,11 @@ async def init_db():
             logger.info("[db] 已添加 generation_tasks.audio_base64 列")
         except Exception:
             pass
+        try:
+            await conn.execute(text(
+                "ALTER TABLE users ADD COLUMN session_version INTEGER DEFAULT 0"
+            ))
+            await conn.commit()
+            logger.info("[db] 已添加 users.session_version 列")
+        except Exception:
+            pass

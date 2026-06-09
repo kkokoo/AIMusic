@@ -2,22 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Wallet,
   Coins,
   CheckCircle,
   Sparkles,
   Loader2,
-  Plus,
   CreditCard,
-  Clock,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCreditStore } from '@/stores/creditStore'
 import { useUIStore } from '@/stores/uiStore'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
 import Skeleton from '@/components/ui/Skeleton'
 import { cn } from '@/utils/cn'
@@ -244,12 +241,12 @@ function SuccessModal({
 
 export default function RechargePage() {
   const router = useRouter()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, hasHydrated, fetchProfile } = useAuthStore()
   const { packages, fetchPackages, createOrder, payOrder, loading } = useCreditStore()
   const { toast } = useUIStore()
 
   const [selectedPkg, setSelectedPkg] = useState<CreditPackage | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'alipay'>('alipay')
+  const paymentMethod = 'alipay' as const
   const [payLoading, setPayLoading] = useState(false)
   const [payMessage, setPayMessage] = useState('')
   const [successOrder, setSuccessOrder] = useState<CreditOrder | null>(null)
@@ -258,14 +255,11 @@ export default function RechargePage() {
   const [pendingOrder, setPendingOrder] = useState<CreditOrder | null>(null)
   const [paymentStep, setPaymentStep] = useState<'confirm' | 'processing' | 'done'>('confirm')
 
-  const [customCredits, setCustomCredits] = useState('')
-  const [customSelected, setCustomSelected] = useState(false)
-
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/login')
     }
-  }, [isAuthenticated, router])
+  }, [hasHydrated, isAuthenticated, router])
 
   useEffect(() => {
     fetchPackages()
@@ -273,17 +267,7 @@ export default function RechargePage() {
 
   const handleSelectPackage = useCallback((pkg: CreditPackage) => {
     setSelectedPkg(pkg)
-    setCustomSelected(false)
-    setCustomCredits('')
   }, [])
-
-  const handleCustomSelect = useCallback(() => {
-    setSelectedPkg(null)
-    setCustomSelected(true)
-  }, [])
-
-  const customCreditNum = parseInt(customCredits) || 0
-  const customPriceCents = customCreditNum * 6
 
   const handlePay = useCallback(async () => {
     if (!user) return
@@ -294,7 +278,6 @@ export default function RechargePage() {
     try {
       const order = await createOrder(user.id, {
         packageId: selectedPkg?.id,
-        customCredits: customSelected ? customCreditNum : undefined,
         paymentMethod,
       })
 
@@ -308,7 +291,7 @@ export default function RechargePage() {
       setPayMessage('')
       toast('error', '创建订单失败，请重试')
     }
-  }, [user, selectedPkg, customSelected, customCreditNum, paymentMethod, createOrder, toast])
+  }, [user, selectedPkg, paymentMethod, createOrder, toast])
 
   const handleConfirmPay = useCallback(async () => {
     if (!pendingOrder || !user) return
@@ -317,6 +300,7 @@ export default function RechargePage() {
     try {
       await new Promise((r) => setTimeout(r, 1500))
       await payOrder(pendingOrder.id, user.id)
+      await fetchProfile()
 
       setPaymentStep('done')
       await new Promise((r) => setTimeout(r, 800))
@@ -332,11 +316,11 @@ export default function RechargePage() {
       setPendingOrder(null)
       toast('error', '支付失败，请重试')
     }
-  }, [pendingOrder, user, payOrder, toast])
+  }, [pendingOrder, user, payOrder, fetchProfile, toast])
 
-  const canPay = selectedPkg || (customSelected && customCreditNum > 0)
+  const canPay = selectedPkg
 
-  if (!isAuthenticated || !user) {
+  if (!hasHydrated || !isAuthenticated || !user) {
     return null
   }
 
@@ -417,59 +401,6 @@ export default function RechargePage() {
             {payLoading ? payMessage : '立即支付'}
           </Button>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="border-t border-space-600/50 pt-8"
-        >
-          <h3 className="text-sm font-medium text-text-secondary mb-4">自定义金额</h3>
-          <div
-            onClick={handleCustomSelect}
-            className={cn(
-              'rounded-2xl border p-5 transition-all duration-300 cursor-pointer',
-              customSelected
-                ? 'border-purple-neon bg-purple-glow/10 shadow-[0_0_20px_var(--color-purple-glow)]'
-                : 'border-space-600/50 bg-space-800 hover:border-space-500'
-            )}
-          >
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex-1 w-full sm:w-auto">
-                <Input
-                  type="number"
-                  placeholder="输入积分数量"
-                  value={customCredits}
-                  onChange={(e) => setCustomCredits(e.target.value)}
-                  min="10"
-                  icon={<Plus className="w-4 h-4" />}
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-text-secondary">
-                  ={' '}
-                  <span
-                    className="text-lg font-bold text-cyan-neon"
-                    style={{ fontFamily: 'var(--font-orbitron)' }}
-                  >
-                    {formatPrice(customPriceCents)}
-                  </span>
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={customCreditNum <= 0}
-                  onClick={handleCustomSelect}
-                >
-                  选择
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-text-muted mt-3">
-              1积分 = ¥0.06，最低充值10积分
-            </p>
-          </div>
-        </motion.div>
 
         <PaymentModal
           isOpen={paymentOpen}

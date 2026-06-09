@@ -10,17 +10,17 @@ import AdminHeader from '@/components/layout/AdminHeader'
 import { X } from 'lucide-react'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading } = useAuthStore()
+  const { user, isAuthenticated, isLoading, hasHydrated } = useAuthStore()
   const { adminSidebarCollapsed, adminMobileOpen, setAdminMobileOpen } = useUIStore()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || !user?.isAdmin)) {
+    if (hasHydrated && !isLoading && (!isAuthenticated || !user?.isAdmin)) {
       router.replace('/login')
     }
-  }, [isAuthenticated, user, isLoading, router])
+  }, [hasHydrated, isAuthenticated, user, isLoading, router])
 
-  if (isLoading || !isAuthenticated || !user?.isAdmin) {
+  if (!hasHydrated || isLoading || !isAuthenticated || !user?.isAdmin) {
     return (
       <div className="min-h-screen bg-space-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">

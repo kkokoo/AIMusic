@@ -66,7 +66,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
 
-    token = create_token(user.id, user.is_admin)
+    token = create_token(user.id, user.is_admin, user.session_version)
     return ApiResponse.ok({
         "token": token,
         "user": user_to_response(user),
@@ -85,7 +85,11 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not verify_password(req.password, user.password_hash):
         return ApiResponse.fail("邮箱或密码错误")
 
-    token = create_token(user.id, user.is_admin)
+    user.session_version = (user.session_version or 0) + 1
+    await db.commit()
+    await db.refresh(user)
+
+    token = create_token(user.id, user.is_admin, user.session_version)
     return ApiResponse.ok({
         "token": token,
         "user": user_to_response(user),

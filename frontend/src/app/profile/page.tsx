@@ -60,7 +60,7 @@ function StatCard({
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, isAuthenticated, updateProfile, changePassword, logout } = useAuthStore()
+  const { user, isAuthenticated, hasHydrated, updateProfile, changePassword, logout } = useAuthStore()
   const { toast } = useUIStore()
 
   const [profileSaving, setProfileSaving] = useState(false)
@@ -87,10 +87,10 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hasHydrated && !isAuthenticated) {
       router.push('/login')
     }
-  }, [isAuthenticated, router])
+  }, [hasHydrated, isAuthenticated, router])
 
   useEffect(() => {
     if (user) {
@@ -104,7 +104,7 @@ export default function ProfilePage() {
       await updateProfile({ username: data.username })
       toast('success', '个人信息已更新')
     } catch {
-      toast('error', '更新失败，请重试')
+      // updateProfile 已展示后端返回的具体错误
     } finally {
       setProfileSaving(false)
     }
@@ -128,7 +128,7 @@ export default function ProfilePage() {
     router.push('/login')
   }
 
-  if (!isAuthenticated || !user) {
+  if (!hasHydrated || !isAuthenticated || !user) {
     return null
   }
 

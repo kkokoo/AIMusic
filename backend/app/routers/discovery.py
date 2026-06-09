@@ -85,11 +85,17 @@ async def build_recommendations(db: AsyncSession, user_id: int, limit: int = 20)
 
     result = []
     model_ids = list({all_tasks[tid].model_id for tid, _ in ranked if tid in all_tasks})
+    user_ids = list({all_tasks[tid].user_id for tid, _ in ranked if tid in all_tasks})
     model_map = {}
     if model_ids:
         m_result = await db.execute(select(AIModel).where(AIModel.id.in_(model_ids)))
         for m in m_result.scalars().all():
             model_map[m.id] = m.name
+    user_map = {}
+    if user_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for u in u_result.scalars().all():
+            user_map[u.id] = u.username
 
     for task_id, score in ranked:
         t = all_tasks.get(task_id)
@@ -99,6 +105,7 @@ async def build_recommendations(db: AsyncSession, user_id: int, limit: int = 20)
             "id": t.id,
             "prompt": t.prompt or "",
             "customName": getattr(t, 'custom_name', None),
+            "creatorName": user_map.get(t.user_id, "匿名用户"),
             "style": t.style or "",
             "mode": t.mode,
             "modelName": model_map.get(t.model_id, "未知模型"),
@@ -144,17 +151,24 @@ async def get_leaderboard(
     tasks = result.scalars().all()
 
     model_ids = list({t.model_id for t in tasks})
+    user_ids = list({t.user_id for t in tasks})
     model_map = {}
     if model_ids:
         m_result = await db.execute(select(AIModel).where(AIModel.id.in_(model_ids)))
         for m in m_result.scalars().all():
             model_map[m.id] = m.name
+    user_map = {}
+    if user_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for u in u_result.scalars().all():
+            user_map[u.id] = u.username
 
     items = [
         {
             "id": t.id,
             "prompt": t.prompt or "",
             "customName": getattr(t, 'custom_name', None),
+            "creatorName": user_map.get(t.user_id, "匿名用户"),
             "style": t.style or "",
             "mode": t.mode,
             "modelName": model_map.get(t.model_id, "未知模型"),
@@ -222,17 +236,24 @@ async def search_music(
     tasks = result.scalars().all()
 
     model_ids = list({t.model_id for t in tasks})
+    user_ids = list({t.user_id for t in tasks})
     model_map = {}
     if model_ids:
         m_result = await db.execute(select(AIModel).where(AIModel.id.in_(model_ids)))
         for m in m_result.scalars().all():
             model_map[m.id] = m.name
+    user_map = {}
+    if user_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for u in u_result.scalars().all():
+            user_map[u.id] = u.username
 
     items = [
         {
             "id": t.id,
             "prompt": t.prompt or "",
             "customName": getattr(t, 'custom_name', None),
+            "creatorName": user_map.get(t.user_id, "匿名用户"),
             "style": t.style or "",
             "mode": t.mode,
             "modelName": model_map.get(t.model_id, "未知模型"),

@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import apiClient from '@/lib/axios'
-import { useUIStore } from './uiStore'
 
 export interface DiscoveryItem {
   id: number
   prompt: string
   customName?: string
+  creatorName?: string
   style: string
   mode: string
   modelName: string
@@ -37,7 +37,7 @@ interface DiscoveryState {
   recordPlay: (taskId: number) => Promise<void>
 }
 
-export const useDiscoveryStore = create<DiscoveryState>((set, get) => ({
+export const useDiscoveryStore = create<DiscoveryState>((set) => ({
   leaderboard: [],
   leaderboardTotal: 0,
   leaderboardPage: 1,

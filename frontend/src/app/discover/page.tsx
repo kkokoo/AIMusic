@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Disc3,
-  X,
+  Download,
+  User,
 } from 'lucide-react'
 import { useDiscoveryStore, type DiscoveryItem } from '@/stores/discoveryStore'
 import { useAudioStore } from '@/stores/audioStore'
@@ -25,10 +26,16 @@ import { formatDuration } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
 const TABS = [
-  { key: 'leaderboard', label: '热度榜单', icon: Trophy },
+  { key: 'leaderboard', label: '创作榜单', icon: Trophy },
   { key: 'recommendations', label: '为你推荐', icon: Sparkles },
   { key: 'search', label: '搜索', icon: Search },
 ]
+
+const MODE_LABELS: Record<string, string> = {
+  instrumental: '纯音乐',
+  song: '歌曲',
+  cover: '翻唱',
+}
 
 function MusicCard({
   item,
@@ -93,6 +100,13 @@ function MusicCard({
           {getDisplayName(item)}
         </p>
         <div className="flex items-center gap-3 mt-0.5 text-[10px] text-text-muted">
+          <span className="px-1.5 py-0.5 rounded-md bg-purple-neon/10 text-purple-neon border border-purple-neon/20">
+            {MODE_LABELS[item.mode] || item.mode}
+          </span>
+          <span className="flex items-center gap-1">
+            <User className="w-3 h-3" />
+            {item.creatorName || '匿名用户'}
+          </span>
           <span className="flex items-center gap-1">
             <Disc3 className="w-3 h-3" />
             {item.modelName}
@@ -112,7 +126,10 @@ function MusicCard({
           </span>
         </div>
         <button
-          onClick={onPlay}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay()
+          }}
           disabled={!item.audioUrl}
           className={cn(
             'w-8 h-8 rounded-full flex items-center justify-center transition-all',
@@ -128,6 +145,19 @@ function MusicCard({
             <Play className="w-4 h-4 fill-current ml-0.5" />
           )}
         </button>
+        {item.audioUrl && (
+          <a
+            href={item.audioUrl}
+            download
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-space-700 text-text-muted hover:text-cyan-neon hover:bg-cyan-neon/10 transition-all"
+            title="下载音乐"
+          >
+            <Download className="w-4 h-4" />
+          </a>
+        )}
       </div>
     </motion.div>
   )
@@ -196,7 +226,7 @@ export default function DiscoveryPage() {
     fetchLeaderboard, fetchRecommendations, search, recordPlay,
   } = useDiscoveryStore()
 
-  const { play, pause, resume, isPlaying, currentUrl, playPlaylist } = useAudioStore()
+  const { pause, resume, isPlaying, currentUrl, playPlaylist } = useAudioStore()
 
   useEffect(() => {
     if (activeTab === 'leaderboard') {
@@ -204,7 +234,7 @@ export default function DiscoveryPage() {
     } else if (activeTab === 'recommendations') {
       fetchRecommendations()
     }
-  }, [activeTab])
+  }, [activeTab, fetchLeaderboard, fetchRecommendations])
 
   const currentList = activeTab === 'leaderboard'
     ? leaderboard
@@ -223,7 +253,7 @@ export default function DiscoveryPage() {
   const currentPage = activeTab === 'leaderboard' ? leaderboardPage : searchPage
 
   const handlePlay = useCallback(
-    (item: DiscoveryItem, idx: number) => {
+    (item: DiscoveryItem) => {
       if (!item.audioUrl) return
       if (currentUrl === item.audioUrl && isPlaying) {
         pause()
@@ -236,11 +266,13 @@ export default function DiscoveryPage() {
           .map((i) => ({
             url: i.audioUrl!,
             name: getDisplayName(i),
+            lyrics: i.lyrics,
           }))
-        playPlaylist(songs, idx)
+        const startIndex = songs.findIndex((song) => song.url === item.audioUrl)
+        playPlaylist(songs, Math.max(0, startIndex))
       }
     },
-    [currentUrl, isPlaying, playPlaylist, pause, resume, currentList],
+    [currentUrl, isPlaying, playPlaylist, pause, resume, currentList, recordPlay],
   )
 
   const handleSearch = () => {
@@ -250,7 +282,7 @@ export default function DiscoveryPage() {
     }
   }
 
-  const pageTitle = activeTab === 'leaderboard' ? '热度榜单'
+  const pageTitle = activeTab === 'leaderboard' ? '创作榜单'
     : activeTab === 'recommendations' ? '为你推荐'
       : searchQuery ? `搜索: ${searchQuery}` : '搜索'
 
@@ -336,7 +368,7 @@ export default function DiscoveryPage() {
                 key={item.id}
                 item={item}
                 rank={activeTab === 'leaderboard' ? leaderboardPage * 20 - 20 + idx + 1 : undefined}
-                onPlay={() => handlePlay(item, idx)}
+                onPlay={() => handlePlay(item)}
                 onClick={() => setDetailItem(item)}
                 isPlaying={isPlaying}
                 currentUrl={currentUrl}
@@ -382,6 +414,13 @@ export default function DiscoveryPage() {
                 {getDisplayName(detailItem)}
               </h2>
               <div className="flex items-center gap-3 text-xs text-text-muted">
+                <span>
+                  <User className="w-3 h-3" />
+                  {detailItem.creatorName || '匿名用户'}
+                </span>
+                <span>
+                  {MODE_LABELS[detailItem.mode] || detailItem.mode}
+                </span>
                 <span>
                   <Disc3 className="w-3 h-3" />
                   {detailItem.modelName}

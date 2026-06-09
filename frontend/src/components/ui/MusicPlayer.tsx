@@ -10,6 +10,7 @@ import {
   Download,
   X,
   ChevronUp,
+  FileText,
 } from 'lucide-react'
 import { useAudioStore } from '@/stores/audioStore'
 import { cn } from '@/utils/cn'
@@ -25,6 +26,7 @@ export default function MusicPlayer() {
   const {
     currentUrl,
     currentName,
+    currentLyrics,
     isPlaying,
     currentTime,
     duration,
@@ -41,6 +43,7 @@ export default function MusicPlayer() {
   const progressRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
   const [showFull, setShowFull] = useState(false)
+  const [showLyrics, setShowLyrics] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true)
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -94,6 +97,7 @@ export default function MusicPlayer() {
   const handleCollapse = () => {
     stop()
     setShowFull(false)
+    setShowLyrics(false)
     setIsCollapsed(true)
   }
 
@@ -230,7 +234,35 @@ export default function MusicPlayer() {
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
+
+              <button
+                onClick={() => setShowLyrics(!showLyrics)}
+                disabled={!currentLyrics.trim()}
+                className={cn(
+                  'p-1.5 rounded-lg transition-colors',
+                  currentLyrics.trim()
+                    ? 'text-text-muted hover:text-purple-neon hover:bg-purple-neon/10'
+                    : 'text-text-muted/30 cursor-not-allowed',
+                )}
+                title={currentLyrics.trim() ? '查看歌词' : '暂无歌词'}
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
             </div>
+
+            {showLyrics && currentLyrics.trim() && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="mt-3 pt-3 border-t border-white/5"
+              >
+                <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-space-600 scrollbar-track-transparent">
+                  <p className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed">
+                    {currentLyrics}
+                  </p>
+                </div>
+              </motion.div>
+            )}
 
             {showFull && playlist.length > 1 && (
               <motion.div
@@ -242,7 +274,7 @@ export default function MusicPlayer() {
                   <button
                     key={idx}
                     onClick={() => {
-                      useAudioStore.getState().play(song.url, song.name)
+                      useAudioStore.getState().play(song.url, song.name, song.lyrics)
                       useAudioStore.setState({ currentIndex: idx })
                     }}
                     className={cn(

@@ -9,6 +9,7 @@ interface AuthState {
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  hasHydrated: boolean
 
   login: (params: LoginParams) => Promise<void>
   register: (params: RegisterParams) => Promise<void>
@@ -16,6 +17,7 @@ interface AuthState {
   fetchProfile: () => Promise<void>
   updateProfile: (data: Partial<User>) => Promise<void>
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>
+  setHasHydrated: (value: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,6 +27,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      hasHydrated: false,
 
       login: async (params) => {
         set({ isLoading: true })
@@ -58,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem('auth-token')
+        localStorage.removeItem('auth-storage')
         set({ user: null, token: null, isAuthenticated: false, isLoading: false })
       },
 
@@ -67,7 +71,12 @@ export const useAuthStore = create<AuthState>()(
           const res = await apiClient.get('/user/profile')
           set({ user: res.data as User, isLoading: false })
         } catch (error: unknown) {
-          const err = error as { message?: string; error?: string }
+          const err = error as { message?: string; error?: string; status?: number }
+          if (err?.status === 401) {
+            localStorage.removeItem('auth-token')
+            set({ user: null, token: null, isAuthenticated: false, isLoading: false })
+            return
+          }
           set({ isLoading: false })
           useUIStore.getState().toast('error', err?.message || err?.error || '获取用户信息失败')
         }
@@ -99,6 +108,8 @@ export const useAuthStore = create<AuthState>()(
           throw error
         }
       },
+
+      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: 'auth-storage',
@@ -107,6 +118,16 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (typeof window !== 'undefined') {
+          if (state?.token) {
+            localStorage.setItem('auth-token', state.token)
+          } else {
+            localStorage.removeItem('auth-token')
+          }
+        }
+        state?.setHasHydrated(true)
+      },
     }
   )
 )

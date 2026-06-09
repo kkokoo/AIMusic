@@ -3,11 +3,13 @@ import { create } from 'zustand'
 interface PlaylistItem {
   url: string
   name: string
+  lyrics?: string
 }
 
 interface AudioState {
   currentUrl: string | null
   currentName: string
+  currentLyrics: string
   isPlaying: boolean
   currentTime: number
   duration: number
@@ -15,7 +17,7 @@ interface AudioState {
   playlist: PlaylistItem[]
   currentIndex: number
 
-  play: (url: string, name?: string) => void
+  play: (url: string, name?: string, lyrics?: string) => void
   playPlaylist: (songs: PlaylistItem[], startIndex?: number) => void
   playNext: () => void
   playPrev: () => void
@@ -39,6 +41,7 @@ function createAudioElement(url: string, onEnded: () => void) {
 export const useAudioStore = create<AudioState>((set, get) => ({
   currentUrl: null,
   currentName: '',
+  currentLyrics: '',
   isPlaying: false,
   currentTime: 0,
   duration: 0,
@@ -46,11 +49,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   playlist: [],
   currentIndex: -1,
 
-  play: (url: string, name?: string) => {
+  play: (url: string, name?: string, lyrics?: string) => {
     const { audioRef, currentUrl } = get()
     if (currentUrl === url && audioRef) {
       audioRef.play()
-      set({ isPlaying: true })
+      set({ isPlaying: true, currentLyrics: lyrics || get().currentLyrics })
       return
     }
 
@@ -80,6 +83,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       audioRef: audio,
       currentUrl: url,
       currentName: name || '',
+      currentLyrics: lyrics || '',
       isPlaying: true,
       currentTime: 0,
       duration: 0,
@@ -91,7 +95,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     const idx = Math.max(0, Math.min(startIndex, songs.length - 1))
     const song = songs[idx]
     set({ playlist: songs, currentIndex: idx })
-    get().play(song.url, song.name)
+    get().play(song.url, song.name, song.lyrics)
   },
 
   playNext: () => {
@@ -99,7 +103,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (currentIndex < 0 || currentIndex >= playlist.length - 1) return
     const next = playlist[currentIndex + 1]
     set({ currentIndex: currentIndex + 1 })
-    get().play(next.url, next.name)
+    get().play(next.url, next.name, next.lyrics)
   },
 
   playPrev: () => {
@@ -107,7 +111,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (currentIndex <= 0) return
     const prev = playlist[currentIndex - 1]
     set({ currentIndex: currentIndex - 1 })
-    get().play(prev.url, prev.name)
+    get().play(prev.url, prev.name, prev.lyrics)
   },
 
   pause: () => {
@@ -136,6 +140,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       audioRef: null,
       currentUrl: null,
       currentName: '',
+      currentLyrics: '',
       isPlaying: false,
       currentTime: 0,
       duration: 0,

@@ -19,6 +19,7 @@ import {
   Loader2,
   AlertCircle,
   Bot,
+  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useModelStore } from '@/stores/modelStore'
@@ -33,9 +34,19 @@ import { formatDuration } from '@/utils/format'
 import { usePolling } from '@/hooks/usePolling'
 import { useAudioStore } from '@/stores/audioStore'
 import apiClient from '@/lib/axios'
-import type { AIModel } from '@/types'
+import type { AIModel, CreateTaskParams } from '@/types'
 
 type Mode = 'instrumental' | 'song' | 'cover'
+
+type GenerateFormValues = {
+  prompt: string
+  style: string
+  mood: string
+  bpm: number
+  lyrics: string
+  vocalStyle: string
+  musicName: string
+}
 
 const SAMPLE_LYRICS = `窗外的麻雀 在电线杆上多嘴
 你说这一句 很有夏天的感觉
@@ -712,18 +723,19 @@ function EqualizerBars() {
   )
 }
 
-function AudioPlayer({ audioUrl }: { audioUrl: string }) {
-  const { play, isPlaying, currentTime, duration, pause, resume, currentUrl, seek } = useAudioStore()
+function AudioPlayer({ audioUrl, name, lyrics }: { audioUrl: string; name?: string; lyrics?: string }) {
+  const { play, isPlaying, currentTime, duration, pause, resume, seek } = useAudioStore()
   const progressRef = useRef<HTMLDivElement>(null)
+  const [showLyrics, setShowLyrics] = useState(false)
 
   useEffect(() => {
     if (audioUrl) {
-      play(audioUrl, '我的创作')
+      play(audioUrl, name || '我的创作', lyrics)
     }
     return () => {
       useAudioStore.getState().stop()
     }
-  }, [audioUrl])
+  }, [audioUrl, name, lyrics, play])
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -780,18 +792,46 @@ function AudioPlayer({ audioUrl }: { audioUrl: string }) {
             </span>
           </div>
         </div>
+
+        <a
+          href={audioUrl}
+          download
+          target="_blank"
+          rel="noreferrer"
+          className="w-10 h-10 rounded-full bg-space-700 text-text-muted hover:text-cyan-neon hover:bg-cyan-neon/10 flex items-center justify-center transition-colors"
+          title="下载音乐"
+        >
+          <Download className="w-4 h-4" />
+        </a>
+
+        <button
+          type="button"
+          onClick={() => setShowLyrics(!showLyrics)}
+          disabled={!lyrics?.trim()}
+          className={cn(
+            'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
+            lyrics?.trim()
+              ? 'bg-space-700 text-text-muted hover:text-purple-neon hover:bg-purple-neon/10'
+              : 'bg-space-700/60 text-text-muted/30 cursor-not-allowed'
+          )}
+          title={lyrics?.trim() ? '查看歌词' : '暂无歌词'}
+        >
+          <FileText className="w-4 h-4" />
+        </button>
       </div>
+      {showLyrics && lyrics?.trim() && (
+        <div className="mt-3 p-3 rounded-xl bg-space-700/50 border border-space-600/30 max-h-44 overflow-y-auto">
+          <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+            {lyrics}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
 
 function ResultPlayer() {
   const { currentTask } = useTaskStore()
-  const { user } = useAuthStore()
-  const router = useRouter()
-
-  const submitTask = useTaskStore((s) => s.submitTask)
-  const { startPolling } = usePolling()
 
   if (!currentTask) {
     return (
@@ -917,7 +957,11 @@ function ResultPlayer() {
         </div>
 
         <div className="w-full mb-5">
-          <AudioPlayer audioUrl={currentTask.audioUrl || '/sample-audio.mp3'} />
+          <AudioPlayer
+            audioUrl={currentTask.audioUrl || '/sample-audio.mp3'}
+            name={currentTask.customName || currentTask.modelName}
+            lyrics={currentTask.lyrics}
+          />
         </div>
 
         <div className="flex items-center gap-3 w-full">
@@ -988,6 +1032,23 @@ function ResultPlayer() {
   return null
 }
 
+function buildFallbackMusicName(mode: Mode, values: GenerateFormValues): string {
+  const explicitName = values.musicName.trim()
+  if (explicitName) return explicitName
+
+  const source = values.prompt.trim() || values.style || values.vocalStyle || values.mood
+  if (source) return source.replace(/\s+/g, '').slice(0, 16)
+
+  const modeLabel = mode === 'instrumental' ? '纯音乐' : mode === 'cover' ? '翻唱' : '歌曲'
+  return `${modeLabel}${new Date().toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).replace(/[^\d]/g, '')}`
+}
+
 export default function CreatePage() {
   const router = useRouter()
   const { user } = useAuthStore()
@@ -1010,13 +1071,15 @@ export default function CreatePage() {
   const [musicName, setMusicName] = useState('')
 
   useEffect(() => {
-    if (currentTask) setMobileShowResult(true)
+    if (!currentTask?.id) return
+    const frame = requestAnimationFrame(() => setMobileShowResult(true))
+    return () => cancelAnimationFrame(frame)
   }, [currentTask?.id])
 
   const handleModeChange = useCallback(
     (newMode: Mode) => {
       setMode(newMode)
-      selectModel(null as unknown as AIModel)
+      selectModel(null)
       useModelStore.setState({ selectedModel: null })
       setPrompt('')
       setStyle('')
@@ -1036,38 +1099,60 @@ export default function CreatePage() {
     return Math.ceil((selectedModel.maxDurationSec || 60) * selectedModel.pricePerSecond)
   }, [selectedModel])
 
-  const isPerSong = (selectedModel?.pricePerSong ?? 0) > 0
-
   const hasEnoughCredits = user ? user.credits >= costCredits : false
   const canGenerate =
-    selectedModel &&
+    Boolean(selectedModel) &&
     !generating &&
     costCredits >= 0 &&
-    hasEnoughCredits &&
-    (mode !== 'cover' || audioFile !== null)
+    hasEnoughCredits
 
-  const validateForm = useCallback((): string | null => {
+  const getCurrentValues = useCallback((overrides: Partial<GenerateFormValues> = {}): GenerateFormValues => ({
+    prompt,
+    style,
+    mood,
+    bpm,
+    lyrics,
+    vocalStyle,
+    musicName,
+    ...overrides,
+  }), [prompt, style, mood, bpm, lyrics, vocalStyle, musicName])
+
+  const validateForm = useCallback((
+    values = getCurrentValues(),
+    options: { forAutoComplete?: boolean } = {}
+  ): string | null => {
     if (!selectedModel) return '请先选择模型'
     if (!hasEnoughCredits) return '积分不足，请先充值'
 
     switch (mode) {
       case 'instrumental':
-        if (!prompt.trim() && !style && !mood) return '请至少填写音乐描述、风格或情绪中的一项'
         break
       case 'song':
-        if (!prompt.trim() && !lyrics.trim() && !vocalStyle) return '请至少填写歌曲描述、歌词或声音风格中的一项'
+        if (!values.prompt.trim() && !values.lyrics.trim() && !values.vocalStyle) {
+          return '生成歌曲前请先填写歌曲描述、歌词或声音风格中的一项'
+        }
+        if (!options.forAutoComplete && !values.lyrics.trim()) {
+          return '生成歌曲需要歌词，请填写歌词或使用 AI 一键补齐'
+        }
         break
       case 'cover':
         if (!audioFile) return '请上传参考音频文件'
-        if (!prompt.trim()) return '请至少填写翻唱风格'
+        if (!values.prompt.trim()) return '请至少填写翻唱风格'
         break
     }
 
     return null
-  }, [selectedModel, hasEnoughCredits, mode, prompt, style, mood, lyrics, vocalStyle, audioFile])
+  }, [selectedModel, hasEnoughCredits, mode, audioFile, getCurrentValues])
 
-  const handleGenerate = useCallback(async () => {
+  const handleGenerate = useCallback(async (overrides: Partial<GenerateFormValues> = {}) => {
     if (!selectedModel || !user) return
+
+    const values = getCurrentValues(overrides)
+    const validationError = validateForm(values)
+    if (validationError) {
+      useUIStore.getState().toast('warning', validationError)
+      return
+    }
 
     setGenerating(true)
 
@@ -1080,31 +1165,32 @@ export default function CreatePage() {
         audioBase64 = btoa(binary)
       }
 
-      const params: any = {
+      const params: CreateTaskParams & { userId: number } = {
         userId: user.id,
         modelId: selectedModel.id,
         mode,
         durationSec: 0,
-        customName: musicName.trim() || undefined,
+        customName: buildFallbackMusicName(mode, values),
         ...(mode === 'instrumental'
           ? {
-              prompt: prompt || undefined,
-              style: style || undefined,
+              prompt: values.prompt || undefined,
+              style: values.style || undefined,
             }
           : mode === 'cover'
             ? {
-                prompt: prompt || undefined,
-                lyrics: lyrics || undefined,
+                prompt: values.prompt || undefined,
+                lyrics: values.lyrics || undefined,
                 audioBase64,
               }
             : {
-                lyrics: lyrics || undefined,
-                vocalStyle: vocalStyle || undefined,
-                prompt: prompt || undefined,
+                lyrics: values.lyrics || undefined,
+                vocalStyle: values.vocalStyle || undefined,
+                prompt: values.prompt || undefined,
               }),
       }
 
       const task = await submitTask(params)
+      useAuthStore.setState({ user: { ...user, credits: Math.max(0, user.credits - task.costCredits) } })
       startPolling(task.id)
     } catch {
       // silently handled by store
@@ -1115,18 +1201,15 @@ export default function CreatePage() {
     selectedModel,
     user,
     mode,
-    prompt,
-    style,
-    lyrics,
-    vocalStyle,
-    musicName,
+    getCurrentValues,
+    validateForm,
     submitTask,
     startPolling,
     audioFile,
   ])
 
   const handleAIAutoComplete = useCallback(async () => {
-    const validationError = validateForm()
+    const validationError = validateForm(undefined, { forAutoComplete: true })
     if (validationError) {
       useUIStore.getState().toast('warning', validationError)
       return
@@ -1147,19 +1230,32 @@ export default function CreatePage() {
 
       const data = res.data
 
-      if (data.prompt && !prompt.trim()) setPrompt(data.prompt)
-      if (data.style && !style) setStyle(data.style)
-      if (data.mood && !mood) setMood(data.mood)
-      if (data.bpm && mode === 'instrumental') setBpm(data.bpm)
-      if (data.lyrics && !lyrics.trim()) setLyrics(data.lyrics)
-      if (data.vocalStyle && !vocalStyle) setVocalStyle(data.vocalStyle)
-      if (data.musicName && !musicName.trim()) setMusicName(data.musicName)
+      const completedValues = getCurrentValues({
+        prompt: prompt.trim() ? prompt : data.prompt || '',
+        style: style || data.style || '',
+        mood: mood || data.mood || '',
+        bpm: mode === 'instrumental' ? data.bpm || bpm : bpm,
+        lyrics: lyrics.trim() ? lyrics : data.lyrics || '',
+        vocalStyle: vocalStyle || data.vocalStyle || '',
+        musicName: musicName.trim() ? musicName : data.musicName || '',
+      })
+
+      setPrompt(completedValues.prompt)
+      setStyle(completedValues.style)
+      setMood(completedValues.mood)
+      if (mode === 'instrumental') setBpm(completedValues.bpm)
+      setLyrics(completedValues.lyrics)
+      setVocalStyle(completedValues.vocalStyle)
+      setMusicName(buildFallbackMusicName(mode, completedValues))
+
+      if (mode === 'song' && !completedValues.lyrics.trim()) {
+        useUIStore.getState().toast('error', 'AI 未生成歌词，请补充歌词后再生成')
+        return
+      }
 
       useUIStore.getState().toast('success', 'AI已自动补齐内容，正在生成音乐...')
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      await handleGenerate()
+      await handleGenerate(completedValues)
     } catch (err: unknown) {
       const error = err as { message?: string; error?: string }
       useUIStore.getState().toast(
@@ -1169,7 +1265,7 @@ export default function CreatePage() {
     } finally {
       setAiFilling(false)
     }
-  }, [validateForm, mode, prompt, style, mood, bpm, lyrics, vocalStyle, musicName, handleGenerate])
+  }, [validateForm, mode, prompt, style, mood, bpm, lyrics, vocalStyle, musicName, getCurrentValues, handleGenerate])
 
   return (
     <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden">
@@ -1314,7 +1410,7 @@ export default function CreatePage() {
               className="w-full"
               loading={generating}
               disabled={!canGenerate}
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
             >
               {generating ? (
                 <>
