@@ -22,6 +22,7 @@ import { useDiscoveryStore, type DiscoveryItem } from '@/stores/discoveryStore'
 import { useAudioStore } from '@/stores/audioStore'
 import { useAuthStore } from '@/stores/authStore'
 import Modal from '@/components/ui/Modal'
+import CommentSection from '@/components/CommentSection'
 import { formatDuration } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
@@ -406,30 +407,30 @@ export default function DiscoveryPage() {
         </>
       )}
 
-      <Modal isOpen={!!detailItem} onClose={() => setDetailItem(null)} size="md">
+      <Modal isOpen={!!detailItem} onClose={() => setDetailItem(null)} size="lg">
         {detailItem && (
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin scrollbar-thumb-space-600 scrollbar-track-transparent pr-1">
             <div>
               <h2 className="text-lg font-bold text-white mb-1">
                 {getDisplayName(detailItem)}
               </h2>
-              <div className="flex items-center gap-3 text-xs text-text-muted">
-                <span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
+                <span className="flex items-center gap-1">
                   <User className="w-3 h-3" />
                   {detailItem.creatorName || '匿名用户'}
                 </span>
                 <span>
                   {MODE_LABELS[detailItem.mode] || detailItem.mode}
                 </span>
-                <span>
+                <span className="flex items-center gap-1">
                   <Disc3 className="w-3 h-3" />
                   {detailItem.modelName}
                 </span>
-                <span>
+                <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {formatDuration(detailItem.durationSec)}
                 </span>
-                <span>
+                <span className="flex items-center gap-1">
                   <Eye className="w-3 h-3" />
                   {detailItem.playCount}
                 </span>
@@ -459,6 +460,10 @@ export default function DiscoveryPage() {
                 <p className="text-sm text-text-secondary">{detailItem.prompt}</p>
               </div>
             )}
+
+            <div className="pt-2 border-t border-space-600/30">
+              <CommentSection taskId={detailItem.id} />
+            </div>
           </div>
         )}
       </Modal>

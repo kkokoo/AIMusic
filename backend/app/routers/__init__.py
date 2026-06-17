@@ -6,9 +6,12 @@ from app.routers.credits import router as credits_router
 from app.routers.orders import router as orders_router
 from app.routers.admin import router as admin_router
 from app.routers.discovery import router as discovery_router
+from app.routers.comments import router as comments_router
+from app.routers.rankings import router as rankings_router
 
 __all__ = [
     "auth_router", "user_router", "models_router",
     "generation_router", "credits_router", "orders_router",
     "admin_router", "discovery_router",
+    "comments_router", "rankings_router",
 ]

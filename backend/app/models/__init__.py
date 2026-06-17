@@ -7,9 +7,11 @@ from app.models.credit_order import CreditOrder
 from app.models.system_config import SystemConfig
 from app.models.admin_log import AdminLog
 from app.models.play_history import PlayHistory
+from app.models.comment import Comment, CommentLike
+from app.models.ranking_reward import RankingRewardRecord
 
 __all__ = [
     "User", "AIModel", "GenerationTask", "CreditTransaction",
     "CreditPackage", "CreditOrder", "SystemConfig", "AdminLog",
-    "PlayHistory",
+    "PlayHistory", "Comment", "CommentLike", "RankingRewardRecord",
 ]

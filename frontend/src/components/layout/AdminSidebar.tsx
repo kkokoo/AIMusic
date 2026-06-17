@@ -11,6 +11,7 @@ import {
   Users,
   Settings,
   FileText,
+  Music,
   ArrowLeft,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
@@ -18,6 +19,7 @@ import { cn } from '@/utils/cn';
 
 const ADMIN_NAV_ITEMS = [
   { href: '/admin', label: '仪表盘', icon: LayoutDashboard, exact: true },
+  { href: '/admin/songs', label: '歌曲管理', icon: Music },
   { href: '/admin/models', label: '模型管理', icon: Cpu },
   { href: '/admin/packages', label: '套餐管理', icon: Package },
   { href: '/admin/orders', label: '订单管理', icon: ShoppingCart },

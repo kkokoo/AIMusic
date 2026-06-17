@@ -1079,90 +1079,117 @@ export default function CreatePage() {
 
   return (
     <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0 lg:overflow-hidden">
-      <aside className="flex-1 lg:flex-none glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-120 min-h-0 md:ml-5">
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin">
+      <aside className="flex-1 lg:flex-none glass bg-space-800/90 flex flex-col border-r border-white/5 w-full lg:w-[360px] xl:w-120 min-h-0 md:ml-5 md:my-5 md:rounded-2xl md:border md:border-space-600/40 md:shadow-[0_0_30px_rgba(0,240,255,0.04)] overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5 space-y-4 scrollbar-thin">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
+            className="space-y-1"
           >
             <h1
-              className="text-base md:text-lg font-bold text-cyan-neon glow-text-cyan mb-0 text-center"
+              className="text-base md:text-lg font-bold text-cyan-neon glow-text-cyan text-center"
               style={{ fontFamily: 'var(--font-orbitron)' }}
             >
               AI MUSIC STUDIO
             </h1>
+            <p className="text-[11px] text-text-muted text-center">
+              选择模式与参数，开启你的创作
+            </p>
           </motion.div>
 
-          <ModeSwitch mode={mode} onChange={handleModeChange} />
-
-          <ModelSelector
-            mode={mode}
-            selectedModel={selectedModel}
-            onSelectModel={(model) => {
-              selectModel(model)
-            }}
-          />
-
-          {selectedModel && (
-            <CreditPreview
-              selectedModel={selectedModel}
-            />
-          )}
-
-          <div>
-            <label className="block mb-1 text-xs font-medium text-text-secondary">
-              音乐名称
-            </label>
-            <input
-              type="text"
-              value={musicName}
-              onChange={(e) => setMusicName(e.target.value)}
-              placeholder={mode === 'instrumental' ? '例如：静谧的夜晚' : mode === 'cover' ? '例如：翻唱-某某歌曲' : '例如：夏日恋歌'}
-              maxLength={200}
-              className="w-full rounded-lg bg-space-800 border border-space-600 px-3 py-1.5 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)]"
-            />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-neon/70" style={{ fontFamily: 'var(--font-orbitron)' }}>
+                01 · 模式
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-cyan-neon/30 to-transparent" />
+            </div>
+            <ModeSwitch mode={mode} onChange={handleModeChange} />
           </div>
 
-          <AnimatePresence mode="wait">
-            {mode === 'instrumental' && (
-              <InstrumentalForm
-                key="instrumental"
-                prompt={prompt}
-                onPromptChange={setPrompt}
-                style={style}
-                onStyleChange={setStyle}
-                bpm={bpm}
-                onBpmChange={setBpm}
-                mood={mood}
-                onMoodChange={setMood}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-neon/70" style={{ fontFamily: 'var(--font-orbitron)' }}>
+                02 · 模型
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-cyan-neon/30 to-transparent" />
+            </div>
+            <ModelSelector
+              mode={mode}
+              selectedModel={selectedModel}
+              onSelectModel={(model) => {
+                selectModel(model)
+              }}
+            />
+            {selectedModel && (
+              <div className="px-3 py-2 rounded-lg bg-space-700/30 border border-space-600/30">
+                <CreditPreview selectedModel={selectedModel} />
+              </div>
             )}
-            {mode === 'song' && (
-              <SongForm
-                key="song"
-                prompt={prompt}
-                onPromptChange={setPrompt}
-                lyrics={lyrics}
-                onLyricsChange={setLyrics}
-                vocalStyle={vocalStyle}
-                onVocalStyleChange={setVocalStyle}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-neon/70" style={{ fontFamily: 'var(--font-orbitron)' }}>
+                03 · 参数
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-cyan-neon/30 to-transparent" />
+            </div>
+            <div>
+              <label className="block mb-1.5 text-xs font-medium text-text-secondary">
+                音乐名称
+              </label>
+              <input
+                type="text"
+                value={musicName}
+                onChange={(e) => setMusicName(e.target.value)}
+                placeholder={mode === 'instrumental' ? '例如：静谧的夜晚' : mode === 'cover' ? '例如：翻唱-某某歌曲' : '例如：夏日恋歌'}
+                maxLength={200}
+                className="w-full rounded-lg bg-space-800 border border-space-600 px-3 py-2 text-sm text-white placeholder:text-text-muted transition-all duration-200 focus:outline-none focus:border-cyan-neon focus:shadow-[0_0_12px_var(--color-cyan-glow)]"
               />
-            )}
-            {mode === 'cover' && (
-              <CoverForm
-                key="cover"
-                prompt={prompt}
-                onPromptChange={setPrompt}
-                lyrics={lyrics}
-                onLyricsChange={setLyrics}
-                audioFile={audioFile}
-                onAudioFileChange={setAudioFile}
-              />
-            )}
-          </AnimatePresence>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {mode === 'instrumental' && (
+                <InstrumentalForm
+                  key="instrumental"
+                  prompt={prompt}
+                  onPromptChange={setPrompt}
+                  style={style}
+                  onStyleChange={setStyle}
+                  bpm={bpm}
+                  onBpmChange={setBpm}
+                  mood={mood}
+                  onMoodChange={setMood}
+                />
+              )}
+              {mode === 'song' && (
+                <SongForm
+                  key="song"
+                  prompt={prompt}
+                  onPromptChange={setPrompt}
+                  lyrics={lyrics}
+                  onLyricsChange={setLyrics}
+                  vocalStyle={vocalStyle}
+                  onVocalStyleChange={setVocalStyle}
+                />
+              )}
+              {mode === 'cover' && (
+                <CoverForm
+                  key="cover"
+                  prompt={prompt}
+                  onPromptChange={setPrompt}
+                  lyrics={lyrics}
+                  onLyricsChange={setLyrics}
+                  audioFile={audioFile}
+                  onAudioFileChange={setAudioFile}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="p-3 md:p-4 border-t border-space-600/50 bg-space-800/95 backdrop-blur-sm shrink-0 sticky bottom-0">
+        <div className="p-4 md:p-5 border-t border-space-600/50 bg-space-800/95 backdrop-blur-sm shrink-0">
           {selectedModel && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}

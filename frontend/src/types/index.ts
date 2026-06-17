@@ -175,3 +175,66 @@ export interface Toast {
   message: string;
   duration?: number;
 }
+
+export interface Comment {
+  id: number;
+  userId: number;
+  taskId: number;
+  content: string;
+  likesCount: number;
+  createdAt: string;
+  userNickname: string;
+  isLiked: boolean;
+  isOwner: boolean;
+}
+
+export interface CommentListResponse {
+  items: Comment[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface RankingItem {
+  rank: number;
+  userId: number;
+  userNickname: string;
+  meaningfulSongsCount: number;
+  rewardCredits: number;
+  rewardType: string | null;
+  rewardDistributed?: boolean;
+}
+
+export interface RankingListResponse {
+  items: RankingItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  yearMonth: string;
+}
+
+export interface AdminSong {
+  id: number;
+  userId: number;
+  creatorName: string;
+  modelId: number;
+  modelName: string;
+  mode: string;
+  prompt?: string;
+  lyrics?: string;
+  style?: string;
+  durationSec: number;
+  actualDurationSec?: number;
+  costCredits: number;
+  status: string;
+  audioUrl?: string;
+  errorMessage?: string;
+  isDeleted: boolean;
+  customName?: string;
+  playCount: number;
+  commentCount: number;
+  createdAt: string;
+  completedAt?: string;
+}

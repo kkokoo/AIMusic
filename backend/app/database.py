@@ -58,3 +58,11 @@ async def init_db():
             logger.info("[db] 已添加 users.session_version 列")
         except Exception:
             pass
+        try:
+            await conn.execute(text(
+                "ALTER TABLE generation_tasks ADD COLUMN comment_count INTEGER DEFAULT 0"
+            ))
+            await conn.commit()
+            logger.info("[db] 已添加 generation_tasks.comment_count 列")
+        except Exception:
+            pass

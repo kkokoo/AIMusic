@@ -67,3 +67,34 @@ async def get_admin_user(
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
     return current_user
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db),
+):
+    """可选鉴权：未携带 token 或 token 无效时返回 None，不抛异常"""
+    from app.models.user import User
+
+    if not credentials:
+        return None
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except HTTPException:
+        return None
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        return None
+
+    user = await db.get(User, user_id)
+    if not user or not user.is_active:
+        return None
+
+    token_session_version = payload.get("session_version")
+    current_session_version = getattr(user, "session_version", 0) or 0
+    if token_session_version != current_session_version:
+        return None
+
+    return user

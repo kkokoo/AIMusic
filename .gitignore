@@ -28,7 +28,6 @@ service-account.json
 
 # Logs
 *.log
-logs/
 
 # Uploads
 uploads/

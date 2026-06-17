@@ -23,3 +23,4 @@ class User(Base):
     tasks = relationship("GenerationTask", back_populates="user")
     transactions = relationship("CreditTransaction", back_populates="user")
     orders = relationship("CreditOrder", back_populates="user")
+    comments = relationship("Comment", back_populates="user")

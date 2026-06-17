@@ -27,8 +27,10 @@ class GenerationTask(Base):
     custom_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     audio_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
     play_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="tasks")
     model = relationship("AIModel", back_populates="tasks")
+    comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")

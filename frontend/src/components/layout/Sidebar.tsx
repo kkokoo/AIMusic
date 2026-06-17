@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Music, Disc, Wallet, Receipt, User, Compass } from 'lucide-react';
+import { Music, Disc, Wallet, Receipt, User, Compass, Trophy } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/utils/cn';
 
 const NAV_ITEMS = [
   { href: '/create', label: '创作', icon: Music },
   { href: '/discover', label: '发现', icon: Compass },
+  { href: '/rankings', label: '排行榜', icon: Trophy },
   { href: '/works', label: '作品', icon: Disc },
   { href: '/recharge', label: '充值', icon: Wallet },
   { href: '/transactions', label: '明细', icon: Receipt },

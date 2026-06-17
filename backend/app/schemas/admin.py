@@ -31,3 +31,13 @@ class LogResponse(BaseModel):
     created_at: str
 
     model_config = {"from_attributes": True}
+
+
+class AdminRenameSongRequest(BaseModel):
+    custom_name: str
+
+
+class AdminUpdateSongRequest(BaseModel):
+    custom_name: str | None = None
+    is_deleted: bool | None = None
+    status: str | None = None

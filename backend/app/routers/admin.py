@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, date, timezone
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
@@ -13,10 +13,12 @@ from app.models.credit_order import CreditOrder
 from app.models.system_config import SystemConfig
 from app.schemas.ai_model import ModelCreateRequest, ModelUpdateRequest
 from app.schemas.credit import PackageCreateRequest, PackageUpdateRequest
-from app.schemas.admin import AdjustCreditsRequest, ConfigUpdateRequest
+from app.schemas.admin import AdjustCreditsRequest, ConfigUpdateRequest, AdminRenameSongRequest, AdminUpdateSongRequest
 from app.utils.auth import get_admin_user
 from app.utils.response import ApiResponse
+from app.utils.logger import get_logger
 
+logger = get_logger("admin")
 router = APIRouter()
 
 
@@ -498,3 +500,180 @@ async def get_logs(
     current_user: User = Depends(get_admin_user),
 ):
     return ApiResponse.ok([])
+
+
+@router.get("/api/admin/songs")
+async def get_admin_songs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    keyword: str | None = Query(None, description="按名称/提示词搜索"),
+    status: str | None = Query(None, description="按状态过滤"),
+    include_deleted: bool = Query(False, description="是否包含已删除"),
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理端歌曲列表（支持搜索、状态过滤、分页）"""
+    logger.info(
+        "[admin-songs] 查询歌曲 | page=%d | keyword=%s | status=%s | include_deleted=%s",
+        page, keyword, status, include_deleted,
+    )
+
+    conditions = []
+    if not include_deleted:
+        conditions.append(GenerationTask.is_deleted == False)
+    if status:
+        conditions.append(GenerationTask.status == status)
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        conditions.append(
+            or_(
+                GenerationTask.custom_name.ilike(like_pattern),
+                GenerationTask.prompt.ilike(like_pattern),
+                GenerationTask.style.ilike(like_pattern),
+                GenerationTask.lyrics.ilike(like_pattern),
+            )
+        )
+
+    where_clause = and_(*conditions) if conditions else None
+
+    count_stmt = select(func.count()).select_from(GenerationTask)
+    if where_clause is not None:
+        count_stmt = count_stmt.where(where_clause)
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    stmt = select(GenerationTask).order_by(GenerationTask.created_at.desc())
+    if where_clause is not None:
+        stmt = stmt.where(where_clause)
+    offset = (page - 1) * page_size
+    result = await db.execute(stmt.offset(offset).limit(page_size))
+    tasks = result.scalars().all()
+
+    model_ids = list({t.model_id for t in tasks if t.model_id})
+    user_ids = list({t.user_id for t in tasks})
+    model_map = {}
+    user_map = {}
+    if model_ids:
+        m_result = await db.execute(select(AIModel).where(AIModel.id.in_(model_ids)))
+        for m in m_result.scalars().all():
+            model_map[m.id] = m.name
+    if user_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for u in u_result.scalars().all():
+            user_map[u.id] = u.username
+
+    items = []
+    for t in tasks:
+        items.append({
+            "id": t.id,
+            "user_id": t.user_id,
+            "creator_name": user_map.get(t.user_id, "匿名用户"),
+            "model_id": t.model_id,
+            "model_name": model_map.get(t.model_id, "未知"),
+            "mode": t.mode,
+            "prompt": t.prompt,
+            "lyrics": t.lyrics,
+            "style": t.style,
+            "duration_sec": t.duration_sec,
+            "actual_duration_sec": t.actual_duration_sec,
+            "cost_credits": t.cost_credits,
+            "status": t.status,
+            "audio_url": t.audio_url,
+            "error_message": t.error_message,
+            "is_deleted": t.is_deleted,
+            "custom_name": t.custom_name,
+            "play_count": t.play_count,
+            "comment_count": getattr(t, "comment_count", 0),
+            "created_at": t.created_at.isoformat() + "Z" if t.created_at else None,
+            "completed_at": t.completed_at.isoformat() + "Z" if t.completed_at else None,
+        })
+
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
+
+
+@router.patch("/api/admin/songs/{task_id}/rename")
+async def admin_rename_song(
+    task_id: int,
+    req: AdminRenameSongRequest,
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员修改歌曲名称"""
+    name = req.custom_name.strip()
+    if not name or len(name) > 200:
+        return ApiResponse.fail("名称不能为空且不超过200个字符")
+
+    task = await db.get(GenerationTask, task_id)
+    if not task:
+        return ApiResponse.fail("歌曲不存在")
+
+    old_name = task.custom_name
+    task.custom_name = name
+    await db.commit()
+
+    logger.info(
+        "[admin-songs] 改名 | task_id=%d | admin=%d | old=%s | new=%s",
+        task_id, current_user.id, old_name, name,
+    )
+    return ApiResponse.ok(message="改名成功")
+
+
+@router.put("/api/admin/songs/{task_id}")
+async def admin_update_song(
+    task_id: int,
+    req: AdminUpdateSongRequest,
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员更新歌曲信息（名称、状态、删除标记）"""
+    task = await db.get(GenerationTask, task_id)
+    if not task:
+        return ApiResponse.fail("歌曲不存在")
+
+    update_data = req.model_dump(exclude_unset=True)
+    if "custom_name" in update_data and update_data["custom_name"] is not None:
+        name = update_data["custom_name"].strip()
+        if not name or len(name) > 200:
+            return ApiResponse.fail("名称不能为空且不超过200个字符")
+        update_data["custom_name"] = name
+    if "status" in update_data and update_data["status"] is not None:
+        if update_data["status"] not in ("pending", "processing", "completed", "failed"):
+            return ApiResponse.fail("状态不合法")
+
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(task, key, value)
+
+    await db.commit()
+    logger.info(
+        "[admin-songs] 更新 | task_id=%d | admin=%d | fields=%s",
+        task_id, current_user.id, list(update_data.keys()),
+    )
+    return ApiResponse.ok(message="更新成功")
+
+
+@router.delete("/api/admin/songs/{task_id}")
+async def admin_delete_song(
+    task_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员删除歌曲（软删除）"""
+    task = await db.get(GenerationTask, task_id)
+    if not task:
+        return ApiResponse.fail("歌曲不存在")
+
+    task.is_deleted = True
+    await db.commit()
+
+    logger.info(
+        "[admin-songs] 删除 | task_id=%d | admin=%d",
+        task_id, current_user.id,
+    )
+    return ApiResponse.ok(message="删除成功")
