@@ -12,8 +12,6 @@ import {
   Music,
   Eye,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   Disc3,
   Download,
   User,
@@ -25,6 +23,8 @@ import Modal from '@/components/ui/Modal'
 import CommentSection from '@/components/CommentSection'
 import { formatDuration } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import Pagination from '@/components/ui/Pagination'
+import { useDebounce } from '@/hooks/useDebounce'
 
 const TABS = [
   { key: 'leaderboard', label: '创作榜单', icon: Trophy },
@@ -217,6 +217,7 @@ function LoadingSkeleton() {
 export default function DiscoveryPage() {
   const [activeTab, setActiveTab] = useState('leaderboard')
   const [searchInput, setSearchInput] = useState('')
+  const debouncedSearchInput = useDebounce(searchInput, 400)
   const [detailItem, setDetailItem] = useState<DiscoveryItem | null>(null)
   const { isAuthenticated } = useAuthStore()
 
@@ -236,6 +237,13 @@ export default function DiscoveryPage() {
       fetchRecommendations()
     }
   }, [activeTab, fetchLeaderboard, fetchRecommendations])
+
+  useEffect(() => {
+    const query = debouncedSearchInput.trim()
+    if (query && query !== searchQuery) {
+      search(query, 1)
+    }
+  }, [debouncedSearchInput, search, searchQuery])
 
   const currentList = activeTab === 'leaderboard'
     ? leaderboard
@@ -280,6 +288,14 @@ export default function DiscoveryPage() {
     if (searchInput.trim()) {
       search(searchInput.trim(), 1)
       setActiveTab('search')
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    if (activeTab === 'leaderboard') {
+      fetchLeaderboard(page)
+    } else if (activeTab === 'search') {
+      search(searchQuery, page)
     }
   }
 
@@ -377,32 +393,15 @@ export default function DiscoveryPage() {
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-4">
-              <button
-                onClick={() => {
-                  if (activeTab === 'leaderboard') fetchLeaderboard(currentPage - 1)
-                  else search(searchQuery, currentPage - 1)
-                }}
-                disabled={currentPage <= 1}
-                className="p-2 rounded-lg bg-space-800 border border-space-600/40 text-text-muted hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-text-secondary px-2" style={{ fontFamily: 'var(--font-orbitron)' }}>
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                onClick={() => {
-                  if (activeTab === 'leaderboard') fetchLeaderboard(currentPage + 1)
-                  else search(searchQuery, currentPage + 1)
-                }}
-                disabled={currentPage >= totalPages}
-                className="p-2 rounded-lg bg-space-800 border border-space-600/40 text-text-muted hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          {activeTab !== 'recommendations' && totalPages > 1 && (
+            <Pagination
+              page={currentPage}
+              totalPages={totalPages}
+              total={activeTab === 'leaderboard' ? leaderboardTotal : searchTotal}
+              loading={currentLoading}
+              onPageChange={handlePageChange}
+              itemName={activeTab === 'leaderboard' ? '首' : '个'}
+            />
           )}
         </>
       )}

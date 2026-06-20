@@ -7,10 +7,14 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
+import Pagination from '@/components/ui/Pagination'
+import { useDebounce } from '@/hooks/useDebounce'
 import apiClient from '@/lib/axios'
 import { formatDate, formatRelativeTime } from '@/utils/format'
 import { cn } from '@/utils/cn'
-import type { AdminLog } from '@/types'
+import type { AdminLog, PaginatedResponse } from '@/types'
+
+const PAGE_SIZE = 10
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -72,38 +76,99 @@ function getTargetLabel(type: string): string {
   return map[type] || type
 }
 
+// details 由后端以 JSON 字符串形式返回，这里兼容字符串与对象两种情况
+function formatDetails(details: unknown, max = 60): string {
+  if (!details) return '-'
+  let obj = details
+  if (typeof details === 'string') {
+    try {
+      obj = JSON.parse(details)
+    } catch {
+      return details.length > max ? details.slice(0, max) + '...' : details
+    }
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const str = JSON.stringify(obj)
+    return str.length > max ? str.slice(0, max) + '...' : str
+  }
+  const str = String(obj)
+  return str.length > max ? str.slice(0, max) + '...' : str
+}
+
 export default function LogsPage() {
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
   const [actionFilter, setActionFilter] = useState('')
   const [targetFilter, setTargetFilter] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
-  useEffect(() => {
-    loadLogs()
-  }, [])
+  const debouncedActionFilter = useDebounce(actionFilter, 400)
+  const debouncedTargetFilter = useDebounce(targetFilter, 400)
 
-  async function loadLogs() {
-    setLoading(true)
-    try {
-      const res = await apiClient.get('/admin/logs')
-      const data = (res.data as AdminLog[]).sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-      setLogs(data)
-    } catch {
-      // API unavailable
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const res = await apiClient.get('/admin/logs', {
+          params: {
+            page,
+            page_size: PAGE_SIZE,
+            ...(debouncedActionFilter ? { action: debouncedActionFilter } : {}),
+            ...(debouncedTargetFilter ? { target_type: debouncedTargetFilter } : {}),
+          },
+          signal: controller.signal,
+        })
+        if (!active) return
+        const data = (res.data as { data: PaginatedResponse<AdminLog> }).data
+        setLogs(data.items)
+        setTotal(data.total)
+        setTotalPages(data.totalPages || 1)
+      } catch {
+        if (!active) return
+        setLogs([])
+        setTotal(0)
+        setTotalPages(1)
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+      controller.abort()
     }
-    setLoading(false)
+  }, [page, debouncedActionFilter, debouncedTargetFilter, refreshKey])
+
+  function handleActionFilter(value: string) {
+    if (value === actionFilter && page === 1) return
+    setActionFilter(value)
+    setPage(1)
+    setLoading(true)
   }
 
-  const filteredLogs = logs.filter((log) => {
-    if (actionFilter && log.action !== actionFilter) return false
-    if (targetFilter && log.targetType !== targetFilter) return false
-    return true
-  })
+  function handleTargetFilter(value: string) {
+    if (value === targetFilter && page === 1) return
+    setTargetFilter(value)
+    setPage(1)
+    setLoading(true)
+  }
 
-  if (loading) {
+  function handlePageChange(next: number) {
+    setLoading(true)
+    setPage(next)
+  }
+
+  function handleRefresh() {
+    setLoading(true)
+    setRefreshKey((k) => k + 1)
+  }
+
+  if (loading && logs.length === 0) {
     return (
       <div className="space-y-6">
         <Skeleton width={160} height={32} />
@@ -131,8 +196,8 @@ export default function LogsPage() {
             <Filter className="w-4 h-4" />
             筛选
           </Button>
-          <Button variant="secondary" onClick={loadLogs}>
-            <RefreshCw className="w-4 h-4" />
+          <Button variant="secondary" onClick={handleRefresh}>
+            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
             刷新
           </Button>
         </div>
@@ -152,7 +217,7 @@ export default function LogsPage() {
                   {ACTION_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => setActionFilter(opt.value)}
+                      onClick={() => handleActionFilter(opt.value)}
                       className={cn(
                         'px-3 py-1.5 rounded-lg text-sm border transition-all',
                         actionFilter === opt.value
@@ -171,7 +236,7 @@ export default function LogsPage() {
                   {TARGET_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => setTargetFilter(opt.value)}
+                      onClick={() => handleTargetFilter(opt.value)}
                       className={cn(
                         'px-3 py-1.5 rounded-lg text-sm border transition-all',
                         targetFilter === opt.value
@@ -205,13 +270,15 @@ export default function LogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log) => (
+                {logs.map((log) => (
                   <tr
                     key={log.id}
                     className="border-b border-space-600/20 hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="py-3 text-text-muted font-mono text-xs">#{log.id}</td>
-                    <td className="py-3 text-white font-medium">管理员#{log.adminId}</td>
+                    <td className="py-3 text-white font-medium">
+                      {log.adminName || `管理员#${log.adminId}`}
+                    </td>
                     <td className="py-3 text-center">
                       <Badge variant={getActionVariant(log.action)}>
                         {getActionLabel(log.action)}
@@ -225,8 +292,11 @@ export default function LogsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-3 text-text-muted text-xs max-w-[200px] truncate">
-                      {log.details ? JSON.stringify(log.details).slice(0, 60) : '-'}
+                    <td
+                      className="py-3 text-text-muted text-xs max-w-[200px] truncate"
+                      title={formatDetails(log.details, 200)}
+                    >
+                      {formatDetails(log.details)}
                     </td>
                     <td className="py-3 text-text-muted font-mono text-xs">
                       {log.ip || '-'}
@@ -238,10 +308,10 @@ export default function LogsPage() {
                     </td>
                   </tr>
                 ))}
-                {filteredLogs.length === 0 && (
+                {logs.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-text-muted">
-                      {logs.length === 0 ? '暂无日志数据' : '没有匹配的日志'}
+                      暂无日志数据
                     </td>
                   </tr>
                 )}
@@ -250,12 +320,10 @@ export default function LogsPage() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filteredLogs.length === 0 && (
-              <div className="py-12 text-center text-text-muted">
-                {logs.length === 0 ? '暂无日志数据' : '没有匹配的日志'}
-              </div>
+            {logs.length === 0 && (
+              <div className="py-12 text-center text-text-muted">暂无日志数据</div>
             )}
-            {filteredLogs.map((log) => (
+            {logs.map((log) => (
               <div
                 key={log.id}
                 className="p-3 rounded-lg bg-white/[0.02] border border-space-600/20"
@@ -267,15 +335,20 @@ export default function LogsPage() {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-white text-sm font-medium">管理员#{log.adminId}</span>
+                  <span className="text-white text-sm font-medium">
+                    {log.adminName || `管理员#${log.adminId}`}
+                  </span>
                   <span className="text-text-muted text-xs">
                     {getTargetLabel(log.targetType)}
                     {log.targetId && ` #${log.targetId}`}
                   </span>
                 </div>
-                {log.details && Object.keys(log.details).length > 0 && (
-                  <div className="text-text-muted text-xs mb-2 font-mono truncate">
-                    {JSON.stringify(log.details).slice(0, 80)}
+                {log.details && (
+                  <div
+                    className="text-text-muted text-xs mb-2 font-mono truncate"
+                    title={formatDetails(log.details, 200)}
+                  >
+                    {formatDetails(log.details, 80)}
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs">
@@ -287,6 +360,15 @@ export default function LogsPage() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            loading={loading}
+            onPageChange={handlePageChange}
+            itemName="条日志"
+          />
         </Card>
       </motion.div>
     </motion.div>

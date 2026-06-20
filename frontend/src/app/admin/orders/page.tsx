@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { ShoppingCart, CheckCircle } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
+import Pagination from '@/components/ui/Pagination'
 import { useUIStore } from '@/stores/uiStore'
 import apiClient from '@/lib/axios'
 import { formatDate, formatOrderNo, formatPrice } from '@/utils/format'
@@ -34,26 +35,51 @@ const statusLabels: Record<string, string> = {
   failed: '已失败',
 }
 
+const PAGE_SIZE = 10
+
+interface OrdersData {
+  items: CreditOrder[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export default function OrdersPage() {
   const toast = useUIStore((s) => s.toast)
   const [orders, setOrders] = useState<CreditOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState<number | null>(null)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [status, setStatus] = useState<'' | 'pending' | 'success' | 'failed'>('')
 
-  useEffect(() => {
-    loadOrders()
-  }, [])
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async (p: number) => {
     setLoading(true)
     try {
-      const res = await apiClient.get('/admin/orders')
-      setOrders((res.data as { data: CreditOrder[] }).data)
+      const res = await apiClient.get('/admin/orders', {
+        params: { page: p, page_size: PAGE_SIZE, status: status || undefined },
+      })
+      const data = (res.data as { data: OrdersData }).data
+      setOrders(data.items)
+      setTotal(data.total)
+      setTotalPages(data.totalPages)
+      setPage(p)
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string }
       toast('error', e?.error || e?.message || '加载订单列表失败')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
+  }, [status, toast])
+
+  useEffect(() => {
+    loadOrders(1)
+  }, [loadOrders])
+
+  function handleStatusChange(value: '' | 'pending' | 'success' | 'failed') {
+    setStatus(value)
   }
 
   async function handleComplete(orderId: number) {
@@ -61,7 +87,7 @@ export default function OrdersPage() {
     try {
       await apiClient.post(`/admin/orders/${orderId}/complete`)
       toast('success', '订单已完成')
-      await loadOrders()
+      await loadOrders(page)
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string }
       toast('error', e?.error || e?.message || '操作失败')
@@ -69,7 +95,7 @@ export default function OrdersPage() {
     setCompleting(null)
   }
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
       <div className="space-y-6">
         <Skeleton width={160} height={32} />
@@ -94,6 +120,20 @@ export default function OrdersPage() {
 
       <motion.div variants={itemVariants}>
         <Card>
+          <div className="flex items-center gap-3 pb-4">
+            <label className="text-sm text-text-muted whitespace-nowrap">状态筛选</label>
+            <select
+              value={status}
+              onChange={(e) => handleStatusChange(e.target.value as '' | 'pending' | 'success' | 'failed')}
+              className="px-3 py-1.5 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
+            >
+              <option value="">全部</option>
+              <option value="pending">待支付</option>
+              <option value="success">已支付</option>
+              <option value="failed">已失败</option>
+            </select>
+          </div>
+
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -117,7 +157,9 @@ export default function OrdersPage() {
                     <td className="py-3 text-text-muted font-mono text-xs" title={order.orderNo}>
                       {formatOrderNo(order.orderNo)}
                     </td>
-                    <td className="py-3 text-text-secondary">用户#{order.userId}</td>
+                    <td className="py-3 text-text-secondary">
+                      {order.userName || `用户#${order.userId}`}
+                    </td>
                     <td className="py-3 text-right text-white font-medium">
                       {formatPrice(order.amountCents)}
                     </td>
@@ -181,7 +223,9 @@ export default function OrdersPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-text-secondary text-xs">用户#{order.userId}</span>
+                  <span className="text-text-secondary text-xs">
+                    {order.userName || `用户#${order.userId}`}
+                  </span>
                   <span className="text-text-secondary text-xs">
                     套餐#{order.packageId ?? '-'}
                   </span>
@@ -197,6 +241,17 @@ export default function OrdersPage() {
               </div>
             ))}
           </div>
+
+          {total > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              loading={loading}
+              onPageChange={loadOrders}
+              itemName="订单"
+            />
+          )}
         </Card>
       </motion.div>
     </motion.div>

@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Users as UsersIcon, Shield, Ban, Check, Coins } from 'lucide-react'
+import { Users as UsersIcon, Shield, Ban, Check, Coins, Search } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
 import Modal from '@/components/ui/Modal'
+import Pagination from '@/components/ui/Pagination'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useUIStore } from '@/stores/uiStore'
 import apiClient from '@/lib/axios'
 import { formatDate } from '@/utils/format'
@@ -23,6 +25,16 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
+const PAGE_SIZE = 10
+
+interface UsersData {
+  items: User[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export default function UsersPage() {
   const toast = useUIStore((s) => s.toast)
   const [users, setUsers] = useState<User[]>([])
@@ -32,22 +44,34 @@ export default function UsersPage() {
   const [creditAmount, setCreditAmount] = useState(0)
   const [creditReason, setCreditReason] = useState('')
   const [adjusting, setAdjusting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [keyword, setKeyword] = useState('')
+  const debouncedKeyword = useDebounce(keyword, 400)
 
-  useEffect(() => {
-    loadUsers()
-  }, [])
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async (p: number) => {
     setLoading(true)
     try {
-      const res = await apiClient.get('/admin/users')
-      setUsers((res.data as { data: User[] }).data)
+      const res = await apiClient.get('/admin/users', {
+        params: { page: p, page_size: PAGE_SIZE, keyword: debouncedKeyword || undefined },
+      })
+      const data = (res.data as { data: UsersData }).data
+      setUsers(data.items)
+      setTotal(data.total)
+      setTotalPages(data.totalPages)
+      setPage(p)
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string }
       toast('error', e?.error || e?.message || '加载用户列表失败')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }
+  }, [debouncedKeyword, toast])
+
+  useEffect(() => {
+    loadUsers(1)
+  }, [loadUsers])
 
   function openCredits(user: User) {
     setSelectedUser(user)
@@ -69,7 +93,7 @@ export default function UsersPage() {
       })
       toast('success', '积分已调整')
       setShowCreditsModal(false)
-      await loadUsers()
+      await loadUsers(page)
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string }
       toast('error', e?.error || e?.message || '调整积分失败')
@@ -81,14 +105,14 @@ export default function UsersPage() {
     try {
       await apiClient.put(`/admin/users/${user.id}/status`)
       toast('success', user.isActive ? '用户已禁用' : '用户已启用')
-      await loadUsers()
+      await loadUsers(page)
     } catch (err: unknown) {
       const e = err as { error?: string; message?: string }
       toast('error', e?.error || e?.message || '操作失败')
     }
   }
 
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <div className="space-y-6">
         <Skeleton width={160} height={32} />
@@ -113,6 +137,16 @@ export default function UsersPage() {
 
       <motion.div variants={itemVariants}>
         <Card>
+          <div className="relative pb-4 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-space-700 border border-space-600 text-white text-sm focus:outline-none focus:border-cyan-neon"
+              placeholder="搜索用户名或邮箱"
+            />
+          </div>
+
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -235,6 +269,17 @@ export default function UsersPage() {
               </div>
             ))}
           </div>
+
+          {total > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              loading={loading}
+              onPageChange={loadUsers}
+              itemName="用户"
+            />
+          )}
         </Card>
       </motion.div>
 

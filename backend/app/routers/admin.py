@@ -11,6 +11,7 @@ from app.models.credit_transaction import CreditTransaction
 from app.models.credit_package import CreditPackage
 from app.models.credit_order import CreditOrder
 from app.models.system_config import SystemConfig
+from app.models.admin_log import AdminLog
 from app.schemas.ai_model import ModelCreateRequest, ModelUpdateRequest
 from app.schemas.credit import PackageCreateRequest, PackageUpdateRequest
 from app.schemas.admin import AdjustCreditsRequest, ConfigUpdateRequest, AdminRenameSongRequest, AdminUpdateSongRequest
@@ -20,6 +21,18 @@ from app.utils.logger import get_logger
 
 logger = get_logger("admin")
 router = APIRouter()
+
+
+async def _log_admin_action(
+    db: AsyncSession, admin_id: int, action: str, target_type: str,
+    target_id: int | None = None, details: str = "{}",
+):
+    """记录管理员操作日志"""
+    log = AdminLog(
+        admin_id=admin_id, action=action, target_type=target_type,
+        target_id=target_id, details=details,
+    )
+    db.add(log)
 
 
 @router.get("/api/admin/dashboard")
@@ -193,10 +206,20 @@ async def test_model(
 
 @router.get("/api/admin/packages")
 async def get_packages(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(CreditPackage))
+    total_result = await db.execute(select(func.count()).select_from(CreditPackage))
+    total = total_result.scalar() or 0
+
+    result = await db.execute(
+        select(CreditPackage)
+        .order_by(CreditPackage.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
     packages = result.scalars().all()
     items = []
     for p in packages:
@@ -209,7 +232,13 @@ async def get_packages(
             "is_recommended": p.is_recommended,
             "is_active": p.is_active,
         })
-    return ApiResponse.ok(items)
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
 
 
 @router.post("/api/admin/packages")
@@ -271,19 +300,43 @@ async def delete_package(
 
 @router.get("/api/admin/orders")
 async def get_orders(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None),
     current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(CreditOrder).order_by(CreditOrder.created_at.desc())
-    )
+    conditions = []
+    if status:
+        conditions.append(CreditOrder.status == status)
+    where_clause = and_(*conditions) if conditions else None
+
+    count_stmt = select(func.count()).select_from(CreditOrder)
+    if where_clause is not None:
+        count_stmt = count_stmt.where(where_clause)
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    stmt = select(CreditOrder).order_by(CreditOrder.created_at.desc())
+    if where_clause is not None:
+        stmt = stmt.where(where_clause)
+    result = await db.execute(stmt.offset((page - 1) * page_size).limit(page_size))
     orders = result.scalars().all()
+
+    user_ids = list({o.user_id for o in orders})
+    user_map = {}
+    if user_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        for u in u_result.scalars().all():
+            user_map[u.id] = u.username
+
     items = []
     for o in orders:
         items.append({
             "id": o.id,
             "order_no": o.order_no,
             "user_id": o.user_id,
+            "user_name": user_map.get(o.user_id, f"用户#{o.user_id}"),
             "package_id": o.package_id,
             "amount_cents": o.amount_cents,
             "credits_bought": o.credits_bought,
@@ -293,7 +346,13 @@ async def get_orders(
             "paid_at": o.paid_at.isoformat() + 'Z' if o.paid_at else None,
             "created_at": o.created_at.isoformat() + 'Z',
         })
-    return ApiResponse.ok(items)
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
 
 
 @router.post("/api/admin/orders/{order_id}/complete")
@@ -334,10 +393,33 @@ async def complete_order(
 
 @router.get("/api/admin/users")
 async def get_users(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    keyword: str | None = Query(None, description="搜索用户名/邮箱"),
     current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    conditions = []
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        conditions.append(
+            or_(
+                User.username.ilike(like_pattern),
+                User.email.ilike(like_pattern),
+            )
+        )
+    where_clause = and_(*conditions) if conditions else None
+
+    count_stmt = select(func.count()).select_from(User)
+    if where_clause is not None:
+        count_stmt = count_stmt.where(where_clause)
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    stmt = select(User).order_by(User.created_at.desc())
+    if where_clause is not None:
+        stmt = stmt.where(where_clause)
+    result = await db.execute(stmt.offset((page - 1) * page_size).limit(page_size))
     users = result.scalars().all()
     items = []
     for u in users:
@@ -353,7 +435,13 @@ async def get_users(
             "created_at": u.created_at.isoformat() + 'Z',
             "updated_at": u.updated_at.isoformat() + 'Z',
         })
-    return ApiResponse.ok(items)
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
 
 
 @router.post("/api/admin/users/{user_id}/credits")
@@ -382,6 +470,8 @@ async def adjust_credits(
         description=req.reason,
     )
     db.add(txn)
+    await _log_admin_action(db, current_user.id, "adjust", "user", user.id,
+                            json.dumps({"amount": req.amount, "reason": req.reason}))
     await db.commit()
     return ApiResponse.ok({"balance": user.credits})
 
@@ -399,6 +489,8 @@ async def toggle_user_status(
         return ApiResponse.fail("不能禁用自己")
 
     user.is_active = not user.is_active
+    await _log_admin_action(db, current_user.id, "toggle", "user", user.id,
+                            json.dumps({"is_active": user.is_active}))
     await db.commit()
     return ApiResponse.ok({"id": user.id, "is_active": user.is_active})
 
@@ -497,9 +589,62 @@ async def get_all_tasks(
 
 @router.get("/api/admin/logs")
 async def get_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    action: str | None = Query(None),
+    target_type: str | None = Query(None),
     current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    return ApiResponse.ok([])
+    """管理端操作日志（分页+过滤）"""
+    conditions = []
+    if action:
+        conditions.append(AdminLog.action == action)
+    if target_type:
+        conditions.append(AdminLog.target_type == target_type)
+    where_clause = and_(*conditions) if conditions else None
+
+    count_stmt = select(func.count()).select_from(AdminLog)
+    if where_clause is not None:
+        count_stmt = count_stmt.where(where_clause)
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    stmt = select(AdminLog).order_by(AdminLog.created_at.desc())
+    if where_clause is not None:
+        stmt = stmt.where(where_clause)
+    offset = (page - 1) * page_size
+    result = await db.execute(stmt.offset(offset).limit(page_size))
+    logs = result.scalars().all()
+
+    admin_ids = list({l.admin_id for l in logs})
+    admin_map = {}
+    if admin_ids:
+        u_result = await db.execute(select(User).where(User.id.in_(admin_ids)))
+        for u in u_result.scalars().all():
+            admin_map[u.id] = u.username
+
+    items = []
+    for l in logs:
+        items.append({
+            "id": l.id,
+            "admin_id": l.admin_id,
+            "admin_name": admin_map.get(l.admin_id, f"管理员#{l.admin_id}"),
+            "action": l.action,
+            "target_type": l.target_type,
+            "target_id": l.target_id,
+            "details": l.details,
+            "ip": l.ip,
+            "created_at": l.created_at.isoformat() + "Z" if l.created_at else None,
+        })
+
+    return ApiResponse.ok({
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+    })
 
 
 @router.get("/api/admin/songs")
@@ -615,6 +760,8 @@ async def admin_rename_song(
 
     old_name = task.custom_name
     task.custom_name = name
+    await _log_admin_action(db, current_user.id, "update", "song", task_id,
+                            json.dumps({"old_name": old_name, "new_name": name}))
     await db.commit()
 
     logger.info(
@@ -670,6 +817,8 @@ async def admin_delete_song(
         return ApiResponse.fail("歌曲不存在")
 
     task.is_deleted = True
+    await _log_admin_action(db, current_user.id, "delete", "song", task_id,
+                            json.dumps({"name": task.custom_name}))
     await db.commit()
 
     logger.info(

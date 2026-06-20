@@ -78,6 +78,7 @@ export interface CreditOrder {
   id: number;
   orderNo: string;
   userId: number;
+  userName?: string;
   packageId?: number;
   amountCents: number;
   creditsBought: number;
@@ -91,6 +92,7 @@ export interface CreditOrder {
 export interface AdminLog {
   id: number;
   adminId: number;
+  adminName?: string;
   action: string;
   targetType: string;
   targetId?: number;
