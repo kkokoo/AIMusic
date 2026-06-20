@@ -47,10 +47,10 @@ export default function SettingsPage() {
       const res = await apiClient.get('/admin/config')
       const raw = (res.data as { data: Record<string, unknown> }).data
       const cfg: SystemConfig = {
-        initialCredits: (raw.initialCredits as number) ?? 0,
-        maxConcurrent: (raw.maxConcurrent as number) ?? 3,
+        initialCredits: Number(raw.initialCredits) || 0,
+        maxConcurrent: Number(raw.maxConcurrent) || 3,
         autoRefund: raw.autoRefund === true || raw.autoRefund === 'true',
-        creditPricePerUnit: (raw.creditPricePerUnit as number) ?? 0.06,
+        creditPricePerUnit: Number(raw.creditPricePerUnit) || 0.06,
       }
       setConfig(cfg)
       setOriginalConfig(cfg)
